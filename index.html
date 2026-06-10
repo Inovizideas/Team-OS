@@ -7218,6 +7218,29 @@ function filterProjectsByStatus(status) {
 /*  5. TASKS LIST PAGE  */
 let _tasksView = 'list'; // 'list' | 'kanban'
 
+/* Persist filter state so it survives any re-render of the filter bar */
+let _savedTaskFilters = { q: '', status: '', project: '', assignee: '' };
+
+function _saveTaskFilterState() {
+  _savedTaskFilters = {
+    q:        document.getElementById('tasks-search')?.value        || '',
+    status:   document.getElementById('tasks-filter-status')?.value || '',
+    project:  document.getElementById('tasks-filter-project')?.value|| '',
+    assignee: document.getElementById('tasks-filter-assignee')?.value|| '',
+  };
+}
+
+function _restoreTaskFilterState() {
+  const s  = document.getElementById('tasks-search');
+  const st = document.getElementById('tasks-filter-status');
+  const pr = document.getElementById('tasks-filter-project');
+  const as = document.getElementById('tasks-filter-assignee');
+  if (s)  s.value  = _savedTaskFilters.q;
+  if (st) st.value = _savedTaskFilters.status;
+  if (pr) pr.value = _savedTaskFilters.project;
+  if (as && as.tagName === 'SELECT') as.value = _savedTaskFilters.assignee;
+}
+
 function renderTasksPage() {
   const el = document.getElementById('tasks-content');
   if (!el) return;
@@ -7232,16 +7255,16 @@ function renderTasksPage() {
   const scopedForFilter = _scopedTasks();
   el.innerHTML = `
     <div class="filter-bar">
-      <input type="text" class="form-input" placeholder="Search tasks" id="tasks-search" oninput="filterTasks()" />
-      <select class="form-select" id="tasks-filter-status" onchange="filterTasks()">
+      <input type="text" class="form-input" placeholder="Search tasks" id="tasks-search" oninput="_saveTaskFilterState();filterTasks()" />
+      <select class="form-select" id="tasks-filter-status" onchange="_saveTaskFilterState();filterTasks()">
         <option value="">All statuses</option>
         ${['To Do','In Progress','In Review','Done','Blocked','Cancelled'].map(s=>`<option>${s}</option>`).join('')}
       </select>
-      <select class="form-select" id="tasks-filter-project" onchange="filterTasks()">
+      <select class="form-select" id="tasks-filter-project" onchange="_saveTaskFilterState();filterTasks()">
         <option value="">All projects</option>
         ${_scopedProjects().map(p=>`<option value="${escHtml(p.name)}">${escHtml(p.name)}</option>`).join('')}
       </select>
-      ${admin ? `<select class="form-select" id="tasks-filter-assignee" onchange="filterTasks()">
+      ${admin ? `<select class="form-select" id="tasks-filter-assignee" onchange="_saveTaskFilterState();filterTasks()">
         <option value="">All members</option>
         ${TEAM_MEMBERS.map(m=>`<option value="${m.id}">${m.name}</option>`).join('')}
       </select>` : `<input type="hidden" id="tasks-filter-assignee" value="" />`}
@@ -7258,6 +7281,7 @@ function renderTasksPage() {
     </div>
     <div id="tasks-view-container"></div>
   `;
+  _restoreTaskFilterState();
   setTasksView(_tasksView);
 }
 
