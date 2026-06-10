@@ -1427,8 +1427,16 @@
       .stat-grid { grid-template-columns: repeat(2, 1fr); }
     }
 
+    /* EOD bar: no sidebar offset when sidebar is collapsed */
+    body.sidebar-collapsed #eod-countdown-bar { left: 0; }
+
+    @media (max-width: 1024px) {
+      #eod-countdown-bar { left: 220px; }
+    }
+
     /*  19. Responsive  Mobile  */
     @media (max-width: 768px) {
+      #eod-countdown-bar { left: 0; }
       /* Increase base font size by 1pt on mobile */
       :root {
         --text-xs:   12px;
@@ -10078,7 +10086,7 @@ window.TeamOS.gasSync = gasSync;
   /*  EOD countdown banner  */
   #eod-countdown-bar {
     position: fixed;
-    bottom: 0; left: 0; right: 0;
+    bottom: 0; left: var(--sidebar-width); right: 0;
     background: linear-gradient(135deg, #1a1200, #2a1e00);
     color: white;
     padding: 10px var(--space-lg);
@@ -10088,6 +10096,7 @@ window.TeamOS.gasSync = gasSync;
     z-index: 800;
     font-size: var(--text-sm);
     box-shadow: 0 -4px 20px rgba(0,0,0,0.20);
+    transition: left var(--transition-base);
   }
 
   #eod-countdown-bar.visible { display: flex; }
@@ -10274,7 +10283,7 @@ window.TeamOS.gasSync = gasSync;
   <span>End-of-Day report due in</span>
   <span id="eod-countdown-timer">00:00</span>
   <button class="btn btn-sm" style="background:rgba(255,255,255,0.22);color:white;border:1px solid rgba(255,255,255,0.30);padding:5px 12px;border-radius:var(--radius-sm);font-size:var(--text-xs);" onclick="openEodModal()">Submit Now</button>
-  <button style="background:transparent;border:none;color:rgba(255,255,255,0.60);cursor:pointer;margin-left:auto;font-size:18px;line-height:1;" onclick="document.getElementById('eod-countdown-bar').classList.remove('visible')"></button>
+  <button style="background:transparent;border:none;color:rgba(255,255,255,0.60);cursor:pointer;margin-left:auto;font-size:18px;line-height:1;" onclick="dismissEodBar()"></button>
 </div>
 
 
@@ -12249,20 +12258,36 @@ window._logEvent = _logEvent;
 /*  12. EOD COUNTDOWN TIMER  */
 let _eodCountdownInterval = null;
 const EOD_HOUR = 19; // 7 PM
+let _eodBarDismissedDay = ''; // 'YYYY-MM-DD' when user dismissed bar today
+let _eodSubmittedToday  = false; // set true after final EOD submit
+
+function dismissEodBar() {
+  _eodBarDismissedDay = _today();
+  const bar = document.getElementById('eod-countdown-bar');
+  if (bar) bar.classList.remove('visible');
+}
 
 function startEodCountdown() {
   const bar = document.getElementById('eod-countdown-bar');
   if (!bar) return;
 
   function tick() {
-    const now     = new Date();
-    const target  = new Date(now); target.setHours(EOD_HOUR,0,0,0);
-    if (now >= target) { bar.classList.remove('visible'); stopEodCountdown(); return; }
-    const diff    = Math.floor((target - now) / 1000);
-    const h       = Math.floor(diff / 3600);
-    const m       = Math.floor((diff % 3600) / 60);
-    const s       = diff % 60;
-    const timer   = document.getElementById('eod-countdown-timer');
+    const today  = _today();
+    const now    = new Date();
+    const target = new Date(now); target.setHours(EOD_HOUR,0,0,0);
+
+    // Hide permanently for this session tick if already past 7pm, submitted, or dismissed today
+    if (now >= target || _eodSubmittedToday || _eodBarDismissedDay === today) {
+      bar.classList.remove('visible');
+      if (now >= target) stopEodCountdown();
+      return;
+    }
+
+    const diff  = Math.floor((target - now) / 1000);
+    const h     = Math.floor(diff / 3600);
+    const m     = Math.floor((diff % 3600) / 60);
+    const s     = diff % 60;
+    const timer = document.getElementById('eod-countdown-timer');
     if (timer) timer.textContent = `${h>0?h+'h ':''} ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
 
     /* Show bar only in the last 60 min before 7pm IST */
@@ -12278,6 +12303,15 @@ function stopEodCountdown() {
   clearInterval(_eodCountdownInterval);
   _eodCountdownInterval = null;
 }
+
+/* Auto-hide bar after final EOD submission */
+document.addEventListener('teamos:saveEod', function(e) {
+  if (!e.detail.isDraft) {
+    _eodSubmittedToday = true;
+    const bar = document.getElementById('eod-countdown-bar');
+    if (bar) bar.classList.remove('visible');
+  }
+});
 
 document.addEventListener('teamos:ready', () => {
   startEodCountdown();
