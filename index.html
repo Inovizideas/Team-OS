@@ -2519,7 +2519,7 @@
   // ── SUPABASE CONFIG ──────────────────────────────────────────────────────────
   // Paste your Supabase project URL and anon key here (from supabase.com → Project Settings → API)
   const SUPABASE_URL      = 'https://lmtuptupodykbdhzatrb.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtdHVwdHVwb2R5a2JkaHphdHJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NzA1MjUsImV4cCI6MjA5NjA0NjUyNX0.c7DHUv3sr8uurLcpV7gYZH22fxdwb2bF6cHp_pq7kG4';
+  const SUPABASE_ANON_KEY = 'sb_publishable_OFwiaZIyg9n1DpANrjFPOg_5JkLUgGH';
   // ─────────────────────────────────────────────────────────────────────────────
 
   // ── EMAILJS CONFIG ────────────────────────────────────────────────────────────
@@ -3560,14 +3560,39 @@
       <!-- Recurrence -->
       <div class="form-group">
         <label class="form-label" for="task-recurrence">Recurrence</label>
-        <select class="form-select" id="task-recurrence">
+        <select class="form-select" id="task-recurrence" onchange="_onRecurrenceChange()">
           <option value="None">None (one-off)</option>
           <option value="Daily">Daily</option>
           <option value="Weekly">Weekly</option>
           <option value="Biweekly">Bi-weekly</option>
           <option value="Monthly">Monthly</option>
-          <option value="Custom">Custom</option>
+          <option value="Custom">Custom (pick days)</option>
         </select>
+        <!-- Day-of-week picker: shown for Weekly, Biweekly, Custom -->
+        <div id="task-recurrence-days" style="display:none;margin-top:10px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;">Repeat on</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="recur-day-btn" data-day="Mon" onclick="_toggleRecurDay(this)" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--border-default);background:var(--bg-elevated);color:var(--text-secondary);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">M</button>
+            <button type="button" class="recur-day-btn" data-day="Tue" onclick="_toggleRecurDay(this)" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--border-default);background:var(--bg-elevated);color:var(--text-secondary);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">T</button>
+            <button type="button" class="recur-day-btn" data-day="Wed" onclick="_toggleRecurDay(this)" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--border-default);background:var(--bg-elevated);color:var(--text-secondary);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">W</button>
+            <button type="button" class="recur-day-btn" data-day="Thu" onclick="_toggleRecurDay(this)" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--border-default);background:var(--bg-elevated);color:var(--text-secondary);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">T</button>
+            <button type="button" class="recur-day-btn" data-day="Fri" onclick="_toggleRecurDay(this)" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--border-default);background:var(--bg-elevated);color:var(--text-secondary);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">F</button>
+            <button type="button" class="recur-day-btn" data-day="Sat" onclick="_toggleRecurDay(this)" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--border-default);background:var(--bg-elevated);color:var(--text-secondary);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">S</button>
+            <button type="button" class="recur-day-btn" data-day="Sun" onclick="_toggleRecurDay(this)" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--border-default);background:var(--bg-elevated);color:var(--text-secondary);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">S</button>
+          </div>
+          <div id="task-recurrence-days-error" style="display:none;font-size:11px;color:var(--brand-danger);margin-top:6px;">Please select at least one day.</div>
+        </div>
+        <!-- Day-of-month picker: shown for Monthly -->
+        <div id="task-recurrence-monthday" style="display:none;margin-top:10px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;">On day of month</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="number" id="task-recurrence-monthday-input" min="1" max="31" placeholder="e.g. 1"
+              style="width:80px;padding:8px 10px;border-radius:var(--radius-md);border:2px solid var(--border-default);background:var(--bg-elevated);color:var(--text-primary);font-size:14px;font-weight:700;text-align:center;outline:none;"
+              onfocus="this.style.borderColor='var(--brand-primary)'" onblur="this.style.borderColor='var(--border-default)'" />
+            <span style="font-size:12px;color:var(--text-muted);">of every month (1 – 31)</span>
+          </div>
+          <div id="task-recurrence-monthday-error" style="display:none;font-size:11px;color:var(--brand-danger);margin-top:5px;">Please enter a day (1–31).</div>
+        </div>
       </div>
 
       <!-- Owner (single) -->
@@ -3624,16 +3649,33 @@
         <textarea class="form-textarea" id="task-notes" rows="2" placeholder="Visible only to assigned team members"></textarea>
       </div>
 
+      <!-- Inline Steps / Subtasks section -->
+      <div class="modal-section">
+        <div class="modal-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Steps / Sub-tasks</span>
+          <span id="task-steps-progress-label" style="font-size:11px;font-weight:700;color:var(--brand-primary);"></span>
+        </div>
+        <!-- Progress bar (shown only when steps exist) -->
+        <div id="task-steps-progress-bar-wrap" style="display:none;height:4px;background:var(--bg-elevated);border-radius:var(--radius-full);margin-bottom:10px;overflow:hidden;">
+          <div id="task-steps-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--brand-primary),var(--brand-accent));border-radius:var(--radius-full);transition:width .3s;"></div>
+        </div>
+        <!-- Existing steps list -->
+        <div id="task-inline-steps-list"></div>
+        <!-- Add step input -->
+        <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
+          <input id="task-new-step-input" type="text" placeholder="+ Type a step and press Enter…"
+            style="flex:1;font-size:12px;padding:7px 10px;border-radius:var(--radius-md);border:1.5px solid var(--border-default);background:var(--bg-elevated);color:var(--text-primary);outline:none;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();_inlineAddStep()}"
+            onfocus="this.style.borderColor='var(--brand-primary)'" onblur="this.style.borderColor='var(--border-default)'" />
+          <button type="button" onclick="_inlineAddStep()"
+            style="padding:7px 13px;border-radius:var(--radius-md);border:none;background:var(--brand-primary);color:#000;font-size:12px;font-weight:700;cursor:pointer;">Add</button>
+        </div>
+      </div>
+
     </div><!-- /.modal-body -->
 
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-task-overlay')">Cancel</button>
-      <button class="btn btn-secondary" onclick="openSubTaskModal()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        Sub-tasks
-      </button>
       <button class="btn btn-primary" id="task-modal-save-btn" onclick="saveTaskModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -4497,6 +4539,10 @@
     _attachBuffer   = taskData && Array.isArray(taskData.attachments)
                         ? taskData.attachments.map(a => ({ ...a }))
                         : [];
+    /* ★ Pre-populate steps from existing task so they never disappear on re-edit */
+    _subtasksBuffer = taskData && Array.isArray(taskData.subtasks)
+                        ? taskData.subtasks.map(s => ({ ...s }))
+                        : [];
     renderTaskAttachList();
 
     document.getElementById('modal-task-title').textContent = taskData ? 'Edit Task' : 'Add Task';
@@ -4508,7 +4554,13 @@
     document.getElementById('task-status').value      = taskData?.status       || 'To Do';
     document.getElementById('task-due').value         = taskData?.due          || '';
     document.getElementById('task-followup').value    = taskData?.followUp     || '';
-    document.getElementById('task-recurrence').value  = taskData?.recurrence   || 'None';
+    const _recurVal = taskData?.recurrence || 'None';
+    /* For "Custom:Mon,Wed,Fri" format — show base "Custom" in the dropdown */
+    /* Strip ":days" suffix to get the base frequency for the dropdown */
+    const _recurBase = _recurVal.includes(':') ? _recurVal.split(':')[0] : _recurVal;
+    document.getElementById('task-recurrence').value = _recurBase || 'None';
+    _onRecurrenceChange();                       /* show/hide day picker */
+    _restoreCustomRecurrenceDays(_recurVal);     /* re-tick saved days */
     document.getElementById('task-due-time').value    = taskData?.dueTime      || '';
     document.getElementById('task-notes').value       = taskData?.notes        || '';
 
@@ -4547,7 +4599,7 @@
     updateCharCounter('task-desc',  'task-desc-counter',  500);
 
     openModal('modal-task-overlay');
-    setTimeout(() => document.getElementById('task-title').focus(), 120);
+    setTimeout(() => { _renderInlineSteps(); document.getElementById('task-title').focus(); }, 120);
   }
 
   function buildAssigneeGrid(containerId, selected = [], members = TEAM_MEMBERS) {
@@ -4567,6 +4619,171 @@
 
   function toggleAssigneeChip(checkbox) {
     checkbox.closest('.assignee-chip').classList.toggle('selected', checkbox.checked);
+  }
+
+  /* ── Inline Steps (subtasks) in Edit Task Modal ───────────────────── */
+  function _renderInlineSteps() {
+    const list = document.getElementById('task-inline-steps-list');
+    if (!list) return;
+    const total    = _subtasksBuffer.length;
+    const doneCount = _subtasksBuffer.filter(s => s.status === 'Done').length;
+    const pct      = total ? Math.round((doneCount / total) * 100) : 0;
+
+    /* Progress bar */
+    const wrap = document.getElementById('task-steps-progress-bar-wrap');
+    const bar  = document.getElementById('task-steps-progress-bar');
+    const lbl  = document.getElementById('task-steps-progress-label');
+    if (wrap) wrap.style.display = total ? '' : 'none';
+    if (bar)  bar.style.width = pct + '%';
+    if (lbl)  lbl.textContent = total ? `${doneCount}/${total} done` : '';
+
+    if (!total) { list.innerHTML = ''; return; }
+    list.innerHTML = _subtasksBuffer.map((s, i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-default);">
+        <div class="my-task-check${s.status==='Done'?' done':''}" onclick="_toggleInlineStep(${i})" style="cursor:pointer;flex-shrink:0;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <span style="flex:1;font-size:var(--text-sm);${s.status==='Done'?'text-decoration:line-through;color:var(--text-muted)':'color:var(--text-primary);'}">${escHtml(s.title||s.text||'')}</span>
+        <button type="button" onclick="_deleteInlineStep(${i})" title="Remove"
+          style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:2px;opacity:0.5;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">
+          <svg viewBox="0 0 12 12" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg>
+        </button>
+      </div>`).join('');
+  }
+
+  function _toggleInlineStep(idx) {
+    if (!_subtasksBuffer[idx]) return;
+    _subtasksBuffer[idx].status = _subtasksBuffer[idx].status === 'Done' ? 'To Do' : 'Done';
+    _renderInlineSteps();
+  }
+
+  function _deleteInlineStep(idx) {
+    _subtasksBuffer.splice(idx, 1);
+    _renderInlineSteps();
+  }
+
+  function _inlineAddStep() {
+    const input = document.getElementById('task-new-step-input');
+    const title = input?.value.trim();
+    if (!title) { if (input) { input.focus(); input.style.borderColor='var(--brand-danger)'; setTimeout(()=>input.style.borderColor='var(--border-default)',800); } return; }
+    _subtasksBuffer.push({ id: 'ST-' + Date.now(), title, status: 'To Do' });
+    if (input) input.value = '';
+    _renderInlineSteps();
+    setTimeout(() => document.getElementById('task-new-step-input')?.focus(), 50);
+  }
+
+  /* ── Custom recurrence day picker ─────────────────────────────────── */
+  function _onRecurrenceChange() {
+    const val       = document.getElementById('task-recurrence')?.value;
+    const dayPicker = document.getElementById('task-recurrence-days');
+    const monPicker = document.getElementById('task-recurrence-monthday');
+    if (!dayPicker || !monPicker) return;
+
+    const showDays  = val === 'Weekly' || val === 'Biweekly' || val === 'Custom';
+    const showMonth = val === 'Monthly';
+
+    dayPicker.style.display = showDays  ? '' : 'none';
+    monPicker.style.display = showMonth ? '' : 'none';
+
+    /* Update the label above the day buttons based on frequency */
+    const label = dayPicker.querySelector('div');
+    if (label) {
+      if (val === 'Weekly')   label.textContent = 'Repeat every week on';
+      else if (val === 'Biweekly') label.textContent = 'Repeat every 2 weeks on';
+      else label.textContent = 'Repeat on';
+    }
+
+    if (!showDays) {
+      dayPicker.querySelectorAll('.recur-day-btn').forEach(b => _setRecurDayActive(b, false));
+    }
+    if (!showMonth) {
+      const inp = document.getElementById('task-recurrence-monthday-input');
+      if (inp) inp.value = '';
+    }
+  }
+
+  function _toggleRecurDay(btn) {
+    const isActive = btn.getAttribute('data-active') === '1';
+    _setRecurDayActive(btn, !isActive);
+    /* Hide error if at least one day now selected */
+    const errEl = document.getElementById('task-recurrence-days-error');
+    if (errEl && document.querySelectorAll('.recur-day-btn[data-active="1"]').length) {
+      errEl.style.display = 'none';
+    }
+  }
+
+  function _setRecurDayActive(btn, active) {
+    btn.setAttribute('data-active', active ? '1' : '0');
+    btn.style.background  = active ? 'var(--brand-primary)' : 'var(--bg-elevated)';
+    btn.style.color       = active ? '#000' : 'var(--text-secondary)';
+    btn.style.borderColor = active ? 'var(--brand-primary)' : 'var(--border-default)';
+  }
+
+  /* Returns encoded recurrence string, e.g. "Weekly:Mon,Wed", "Monthly:15", "Custom:Mon,Wed,Fri"
+     Returns null if validation fails (days/date not selected when required). */
+  function _getCustomRecurrence() {
+    const sel = document.getElementById('task-recurrence');
+    if (!sel) return 'None';
+    const val = sel.value;
+
+    if (val === 'Weekly' || val === 'Biweekly' || val === 'Custom') {
+      const days = [...document.querySelectorAll('.recur-day-btn[data-active="1"]')].map(b => b.getAttribute('data-day'));
+      if (!days.length) {
+        const errEl = document.getElementById('task-recurrence-days-error');
+        if (errEl) errEl.style.display = '';
+        return null;
+      }
+      return val + ':' + days.join(',');
+    }
+
+    if (val === 'Monthly') {
+      const dayNum = parseInt(document.getElementById('task-recurrence-monthday-input')?.value || '0', 10);
+      if (!dayNum || dayNum < 1 || dayNum > 31) {
+        const errEl = document.getElementById('task-recurrence-monthday-error');
+        if (errEl) errEl.style.display = '';
+        return null;
+      }
+      return 'Monthly:' + dayNum;
+    }
+
+    return val || 'None'; /* Daily, None */
+  }
+
+  /* Human-readable label for any recurrence value */
+  window._recurLabel = function(r) {
+    if (!r || r === 'None') return 'None';
+    if (r === 'Daily')  return 'Every day';
+    if (r.startsWith('Weekly:'))   return 'Every week on ' + r.replace('Weekly:','').split(',').join(', ');
+    if (r.startsWith('Biweekly:')) return 'Every 2 weeks on ' + r.replace('Biweekly:','').split(',').join(', ');
+    if (r.startsWith('Monthly:'))  return 'Monthly on the ' + r.replace('Monthly:','') + _ordinal(+r.replace('Monthly:',''));
+    if (r.startsWith('Custom:'))   return 'Every ' + r.replace('Custom:','').split(',').join(', ');
+    return r;
+  };
+  function _ordinal(n) { const s=['th','st','nd','rd']; const v=n%100; return s[(v-20)%10]||s[v]||s[0]; }
+
+  /* Pre-populate pickers when editing a task that already has recurrence set */
+  function _restoreCustomRecurrenceDays(recurrenceValue) {
+    if (!recurrenceValue || recurrenceValue === 'None' || recurrenceValue === 'Daily') return;
+
+    /* Weekly:Mon,Wed  /  Biweekly:Fri  /  Custom:Mon,Wed,Fri */
+    if (recurrenceValue.includes(':') && !recurrenceValue.startsWith('Monthly:')) {
+      const days = recurrenceValue.split(':')[1].split(',').map(d => d.trim());
+      const picker = document.getElementById('task-recurrence-days');
+      if (!picker) return;
+      picker.style.display = '';
+      picker.querySelectorAll('.recur-day-btn').forEach(btn => {
+        _setRecurDayActive(btn, days.includes(btn.getAttribute('data-day')));
+      });
+    }
+
+    /* Monthly:15 */
+    if (recurrenceValue.startsWith('Monthly:')) {
+      const dayNum = recurrenceValue.split(':')[1];
+      const picker = document.getElementById('task-recurrence-monthday');
+      const input  = document.getElementById('task-recurrence-monthday-input');
+      if (picker) picker.style.display = '';
+      if (input)  input.value = dayNum;
+    }
   }
 
   function selectPriority(el) {
@@ -4643,6 +4860,27 @@
       .filter(a => a.url && !a._uploading)
       .map(a => ({ name: a.name, url: a.url, type: a.type }));
 
+    /* Validate recurrence pickers before building payload */
+    const _recurType = document.getElementById('task-recurrence')?.value;
+    if (_recurType === 'Weekly' || _recurType === 'Biweekly' || _recurType === 'Custom') {
+      const days = [...document.querySelectorAll('.recur-day-btn[data-active="1"]')];
+      if (!days.length) {
+        const errEl = document.getElementById('task-recurrence-days-error');
+        if (errEl) errEl.style.display = '';
+        showToast({ type:'warning', title:'Pick at least one day', message:`${_recurType} recurrence needs at least one day selected.` });
+        return;
+      }
+    }
+    if (_recurType === 'Monthly') {
+      const dayNum = parseInt(document.getElementById('task-recurrence-monthday-input')?.value || '0', 10);
+      if (!dayNum || dayNum < 1 || dayNum > 31) {
+        const errEl = document.getElementById('task-recurrence-monthday-error');
+        if (errEl) errEl.style.display = '';
+        showToast({ type:'warning', title:'Pick a day of month', message:'Monthly recurrence needs a day number (1–31).' });
+        return;
+      }
+    }
+
     const payload = {
       id:          _currentEditId || ('T-' + Date.now()),
       title,
@@ -4653,7 +4891,7 @@
       brand:       document.getElementById('task-brand').value,
       due:         document.getElementById('task-due').value,
       followUp:    document.getElementById('task-followup').value,
-      recurrence:  document.getElementById('task-recurrence').value,
+      recurrence:  _getCustomRecurrence(),
       dueTime:     document.getElementById('task-due-time').value || '',
       owner:       document.getElementById('task-owner').value,
       assignees:   getSelectedAssignees(),
@@ -4664,15 +4902,22 @@
       updatedAt:   new Date().toISOString(),
     };
 
-    // Part 3 will send to GAS; for now fire an event
-    document.dispatchEvent(new CustomEvent('teamos:saveTask', { detail: payload }));
+    const doSave = () => {
+      document.dispatchEvent(new CustomEvent('teamos:saveTask', { detail: payload }));
+      closeModal('modal-task-overlay');
+      showToast({
+        type:    _currentEditId ? 'info' : 'success',
+        title:   _currentEditId ? 'Task updated' : 'Task created',
+        message: title,
+      });
+    };
 
-    closeModal('modal-task-overlay');
-    showToast({
-      type:    _currentEditId ? 'info' : 'success',
-      title:   _currentEditId ? 'Task updated' : 'Task created',
-      message: title,
-    });
+    /* Guard: warn if saving as Done with open subtasks */
+    if (payload.status === 'Done') {
+      _guardDoneWithOpenSubtasks(_currentEditId || payload.id, doSave, payload.subtasks);
+    } else {
+      doSave();
+    }
   }
 
   /*  M2  SubTask Modal  */
@@ -4897,11 +5142,18 @@
       return;
     }
     const newStatus = sel.dataset.val;
-    document.dispatchEvent(new CustomEvent('teamos:updateStatus', {
-      detail: { taskId, status: newStatus, note }
-    }));
-    closeModal('modal-quickstatus-overlay');
-    showToast({ type: 'success', title: 'Status updated', message: ` ${newStatus}` });
+    const doUpdate = () => {
+      document.dispatchEvent(new CustomEvent('teamos:updateStatus', {
+        detail: { taskId, status: newStatus, note }
+      }));
+      closeModal('modal-quickstatus-overlay');
+      showToast({ type: 'success', title: 'Status updated', message: ` ${newStatus}` });
+    };
+    if (newStatus === 'Done') {
+      _guardDoneWithOpenSubtasks(taskId, doUpdate);
+    } else {
+      doUpdate();
+    }
   }
 
   /*  Project attachments  */
@@ -5190,11 +5442,19 @@
     if (!sel) return;
     const overlay = document.getElementById('modal-statusdetail-overlay');
     const task    = overlay._taskRef;
-    document.dispatchEvent(new CustomEvent('teamos:updateStatus', {
-      detail: { taskId: task?.id, status: sel.dataset.val }
-    }));
-    closeModal('modal-statusdetail-overlay');
-    showToast({ type: 'success', title: 'Status updated', message: ' ' + sel.dataset.val });
+    const newStatus = sel.dataset.val;
+    const doUpdate = () => {
+      document.dispatchEvent(new CustomEvent('teamos:updateStatus', {
+        detail: { taskId: task?.id, status: newStatus }
+      }));
+      closeModal('modal-statusdetail-overlay');
+      showToast({ type: 'success', title: 'Status updated', message: ' ' + newStatus });
+    };
+    if (newStatus === 'Done') {
+      _guardDoneWithOpenSubtasks(task?.id, doUpdate);
+    } else {
+      doUpdate();
+    }
   }
 
   /*  M9  Announce Modal  */
@@ -7068,6 +7328,15 @@ function _tasksListHTML(tasks) {
               <td>
                 <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);${t.status==='Done'?'text-decoration:line-through;color:var(--text-muted)':''}">${escHtml(t.title)}</div>
                 ${t.project ? `<div style="font-size:var(--text-xs);color:var(--text-muted);">${DS.projects.find(p=>p.id===t.project)?.name||''}</div>` : ''}
+                ${(t.subtasks||[]).length ? (() => {
+                  const _st = t.subtasks; const _dn = _st.filter(s=>s.status==='Done').length; const _pct = Math.round(_dn/_st.length*100);
+                  return `<div style="margin-top:5px;">
+                    <div style="height:3px;background:var(--bg-elevated);border-radius:2px;overflow:hidden;margin-bottom:3px;max-width:200px;">
+                      <div style="height:100%;width:${_pct}%;background:${_pct===100?'var(--brand-success)':'var(--brand-primary)'};border-radius:2px;transition:width .3s;"></div>
+                    </div>
+                    ${_activeStepChip(t.id, _st)}
+                  </div>`;
+                })() : ''}
               </td>
               <td>${_statusBadge(t.status)}</td>
               <td>${_priorityBadge(t.priority)}</td>
@@ -7169,6 +7438,66 @@ function _subtaskMini(subtasks) {
     </div>`).join('')}</div>`;
 }
 
+/* Shows the current active step for a task that has subtasks.
+   Renders "Step 2 of 4 · <title>" with a tappable checkbox to mark it done inline. */
+function _activeStepChip(taskId, subtasks) {
+  if (!subtasks || !subtasks.length) return '';
+  const total    = subtasks.length;
+  const doneCount = subtasks.filter(s => s.status === 'Done').length;
+  const activeIdx = subtasks.findIndex(s => s.status !== 'Done' && s.status !== 'Cancelled');
+  if (activeIdx === -1) {
+    /* All done — show compact summary + click to open drawer to undo any step */
+    return `<div style="display:inline-flex;align-items:center;gap:5px;margin-top:4px;font-size:11px;color:var(--brand-success);font-weight:600;cursor:pointer;" onclick="event.stopPropagation();openTaskDrawer('${taskId}')" title="Click to review steps">
+      <svg viewBox="0 0 12 12" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="6" cy="6" r="5"/><polyline points="3.5,6 5.5,8 8.5,4"/></svg>
+      All ${total} steps done · tap to review
+    </div>`;
+  }
+  const active = subtasks[activeIdx];
+  const stepLabel = `Step ${activeIdx + 1} of ${total}`;
+  return `<div style="display:inline-flex;align-items:center;gap:6px;margin-top:5px;max-width:100%;">
+    <button onclick="event.stopPropagation();tickSubtaskDone('${taskId}',${activeIdx})"
+      title="Mark this step done"
+      style="flex-shrink:0;width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border-strong);background:var(--bg-elevated);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .15s;">
+      <svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="var(--text-muted)" stroke-width="2.5"><polyline points="2,5 4.5,7.5 8.5,2.5"/></svg>
+    </button>
+    <span style="font-size:10px;font-weight:700;color:var(--brand-primary);white-space:nowrap;">${escHtml(stepLabel)}</span>
+    <span style="font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;">${escHtml(active.title||active.text||'')}</span>
+  </div>`;
+}
+
+/* Tick the subtask at subtaskIdx as Done, save, and refresh the page */
+function tickSubtaskDone(taskId, subtaskIdx) {
+  const t = (window.TeamOS?.DS?.tasks || []).find(x => x.id === taskId);
+  if (!t || !t.subtasks || !t.subtasks[subtaskIdx]) return;
+  t.subtasks[subtaskIdx].status = 'Done';
+  t.updatedAt = new Date().toISOString();
+  _saveLocal();
+  if (typeof GAS !== 'undefined' && typeof GAS.saveTask === 'function') {
+    try { GAS.saveTask(t); } catch(e) {}
+  }
+  /* Refresh whichever page is showing */
+  const pg = window.TeamOS?.currentPage;
+  if (pg === 'tasks')      { try { filterTasks(); } catch(e) {} }
+  else if (pg === 'mytasks')   { try { renderMyTasksPage(); } catch(e) {} }
+  else if (pg === 'watching')  { try { renderWatchingPage(); } catch(e) {} }
+  else if (pg === 'kanban')    { try { renderKanbanPage(); } catch(e) {} }
+  else if (pg === 'dashboard') { try { renderDashboard(); } catch(e) {} }
+  const doneCount = t.subtasks.filter(s => s.status === 'Done').length;
+  const total     = t.subtasks.length;
+  if (doneCount === total && t.status !== 'Done') {
+    showToast({ type:'success', title:`All ${total} steps done! 🎉`, message: t.title });
+    setTimeout(() => {
+      if (confirm(`All steps for "${t.title}" are done.\n\nMark the main task as Done too?`)) {
+        t.status = 'Done';
+        _saveLocal();
+        document.dispatchEvent(new CustomEvent('teamos:updateStatus', { detail: { taskId: t.id, status: 'Done' } }));
+      }
+    }, 400);
+  } else {
+    showToast({ type:'success', title:`Step ${doneCount} of ${total} done`, message: t.title });
+  }
+}
+
 function renderKanbanPage() {
   // Kanban page (#page-kanban) already has the board shell from Part 1
   // Column order: Blocked  To Do  In Progress  In Review  Done
@@ -7230,7 +7559,7 @@ function renderMyTasksPage() {
             <div class="my-task-title${t.status==='Done'?' done':''}">${escHtml(t.title)}</div>
             <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;">${t.brand||''}${t.project?` · ${DS.projects.find(p=>p.id===t.project)?.name||''}`:''}
             </div>
-            ${_subtaskMini(t.subtasks)}
+            ${(t.subtasks||[]).length ? _activeStepChip(t.id, t.subtasks) : ''}
           </div>
           <div class="my-task-meta">
             ${_priorityBadge(t.priority)}
@@ -8730,6 +9059,24 @@ function _onBillAmountChange() {
   }
 }
 
+/* Returns true if the user currently has unsaved input in the bill upload form
+   (so the 30s background sync can skip re-rendering the Finance page and avoid
+   wiping out what they're typing). */
+function _billFormHasInput() {
+  if ((window._billPendingFiles || []).length) return true;
+  const ids = ['bill-vendor-name','bill-vendor','bill-amount','bill-pay-date',
+               'bill-half1','bill-half1-date','bill-half2','bill-half2-date'];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el && String(el.value || '').trim()) return true;
+  }
+  const company = document.getElementById('bill-company');
+  if (company && company.selectedIndex > 0) return true;
+  const invType = document.getElementById('bill-inv-type');
+  if (invType && invType.selectedIndex > 0) return true;
+  return false;
+}
+
 function _onBillFilePicked(input) {
   window._billPendingFiles = [...(input.files || [])];
   const label = document.getElementById('bill-file-label');
@@ -9190,11 +9537,51 @@ document.addEventListener('teamos:saveEod', function(e) {
 });
 
 /*  14. HELPERS  */
+/* ── Subtask completion guard ────────────────────────────────────────────────
+   Call before marking any task Done. If open subtasks exist, shows a confirm
+   dialog. If user confirms, marks all subtasks Done (and saves to DS), then
+   calls proceed(). Otherwise does nothing.
+   Pass subtasksOverride when the subtasks live in a local buffer (edit modal).  */
+function _guardDoneWithOpenSubtasks(taskId, proceed, subtasksOverride) {
+  const t = (window.TeamOS?.DS?.tasks || []).find(x => x.id === taskId);
+  const subtasks = subtasksOverride || t?.subtasks || [];
+  const open = subtasks.filter(s => s.status !== 'Done' && s.status !== 'Cancelled');
+  if (!open.length) { proceed(); return; }
+
+  const word = open.length === 1 ? '1 subtask is' : `${open.length} subtasks are`;
+  const choice = confirm(
+    `⚠️ ${word} still open on "${t?.title || 'this task'}".\n\n` +
+    `Click OK to mark all subtasks done and close the task.\n` +
+    `Click Cancel to go back and handle them individually.`
+  );
+  if (!choice) return; /* user cancelled — do nothing */
+
+  /* Mark all open subtasks as Done */
+  if (subtasksOverride) {
+    subtasksOverride.forEach(s => { if (s.status !== 'Done' && s.status !== 'Cancelled') s.status = 'Done'; });
+  } else if (t) {
+    (t.subtasks || []).forEach(s => { if (s.status !== 'Done' && s.status !== 'Cancelled') s.status = 'Done'; });
+    _saveLocal();
+    if (typeof GAS !== 'undefined' && typeof GAS.saveTask === 'function') {
+      try { GAS.saveTask(t); } catch(e) {}
+    }
+  }
+  proceed();
+}
+
 function toggleTaskDone(id) {
   const t = DS.tasks.find(x=>x.id===id);
   if (!t) return;
-  t.status = t.status === 'Done' ? 'To Do' : 'Done';
-  document.dispatchEvent(new CustomEvent('teamos:updateStatus', { detail: { taskId: id, status: t.status } }));
+  const next = t.status === 'Done' ? 'To Do' : 'Done';
+  if (next === 'Done') {
+    _guardDoneWithOpenSubtasks(id, () => {
+      t.status = 'Done';
+      document.dispatchEvent(new CustomEvent('teamos:updateStatus', { detail: { taskId: id, status: 'Done' } }));
+    });
+  } else {
+    t.status = 'To Do';
+    document.dispatchEvent(new CustomEvent('teamos:updateStatus', { detail: { taskId: id, status: 'To Do' } }));
+  }
 }
 
 function _today() {
@@ -9289,6 +9676,14 @@ document.addEventListener('teamos:ready', function() {
       }
     }).catch(e => { console.warn('syncAll', e); showToast({ type:'error', title:'Sync error', message:String(e), duration:9000 }); });
     setInterval(() => { try { GAS.pollNotifications(user.initials); } catch(e){} }, 30000);
+    /* ── Track user interaction so background sync never disrupts active work ── */
+    let _lastUserInteraction = Date.now();
+    ['mousedown','keydown','input','change','touchstart'].forEach(ev =>
+      document.addEventListener(ev, () => { _lastUserInteraction = Date.now(); }, { passive: true })
+    );
+    /* Returns true if user has been idle for at least N ms */
+    function _userIdleFor(ms) { return (Date.now() - _lastUserInteraction) >= ms; }
+
     /* Every 30 seconds: pull fresh tasks + attendance from Supabase so all devices stay in sync */
     setInterval(async () => {
       try {
@@ -9312,12 +9707,39 @@ document.addEventListener('teamos:ready', function() {
           });
         }
         _saveLocal();
-        /* Refresh the visible page silently */
-        const pg = window.TeamOS.currentPage;
+
+        /* ── Smart page refresh — never wipe active user state ─────────────── */
+        const pg   = window.TeamOS.currentPage;
         const _try = (fn) => { try { if(typeof fn==='function') fn(); } catch(e){} };
-        if      (pg === 'dashboard')  _try(renderDashboard);
-        else if (pg === 'tasks')      _try(renderTasksPage);
-        else if (pg === 'kanban')     _try(renderKanbanPage);
+        const idle = _userIdleFor(10000); /* true if no interaction for 10 seconds */
+
+        if (pg === 'dashboard')  _try(renderDashboard);
+
+        else if (pg === 'tasks') {
+          /* NEVER rebuild the filter bar — just re-filter with existing values.
+             This preserves search text, status/project/assignee dropdowns. */
+          _try(filterTasks);
+        }
+
+        else if (pg === 'kanban') {
+          /* Only refresh kanban if user has been idle — avoids disrupting drag/drop */
+          if (idle) _try(renderKanbanPage);
+        }
+
+        else if (pg === 'eod') {
+          /* Only re-render EOD if user is still viewing today's date.
+             If they navigated to a past date, leave them alone — past data never changes. */
+          const eodDateEl = document.getElementById('eod-page-date');
+          const viewingDate = eodDateEl ? eodDateEl.value : _today();
+          if (viewingDate === _today()) _try(renderEodPage);
+          /* else: viewing a past date — skip entirely, nothing new to show */
+        }
+
+        else if (pg === 'finance') {
+          /* Skip if bill form has unsaved input */
+          if (!_billFormHasInput()) _try(renderFinancePage);
+        }
+
         else if (pg === 'mytasks')    _try(renderMyTasksPage);
         else if (pg === 'watching')   _try(renderWatchingPage);
         else if (pg === 'misctasks')  _try(renderMiscTasksPage);
@@ -9328,11 +9750,10 @@ document.addEventListener('teamos:ready', function() {
         else if (pg === 'campaigns')  _try(renderCampaignsPage);
         else if (pg === 'vendors')    _try(renderVendorsPage);
         else if (pg === 'content')    _try(renderContentPage);
-        else if (pg === 'finance')    _try(renderFinancePage);
         else if (pg === 'reports')    _try(renderReportsPage);
-        else if (pg === 'admin')      _try(renderAdminPage);
-        else if (pg === 'eod')        _try(renderEodPage);
-        /* Update badges */
+        else if (pg === 'admin')      { if (idle) _try(renderAdminPage); }
+
+        /* Update badges — always safe, no visible disruption */
         const open = DS.tasks.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length;
         const badge = document.getElementById('nav-badge-tasks');
         if (badge) badge.textContent = open;
@@ -10532,24 +10953,37 @@ function openTaskDrawer(id) {
     </div>
 
     <!-- Sub-tasks -->
-    ${subtasks.length ? `
+    <!-- Steps / Sub-tasks — always shown so steps can be added any time -->
     <div>
-      <div class="drawer-section-title" style="display:flex;justify-content:space-between;">
-        <span>Sub-tasks</span>
-        <span style="font-weight:700;color:var(--brand-primary);">${pct}%</span>
+      <div class="drawer-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Steps</span>
+        ${subtasks.length ? `<span style="font-weight:700;color:var(--brand-primary);">${pct}% done</span>` : ''}
       </div>
+      ${subtasks.length ? `
       <div style="height:4px;background:var(--bg-elevated);border-radius:var(--radius-full);margin-bottom:var(--space-sm);overflow:hidden;">
         <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--brand-primary),var(--brand-accent));border-radius:var(--radius-full);"></div>
-      </div>
+      </div>` : ''}
       ${subtasks.map((st,i) => `
         <div style="display:flex;align-items:center;gap:var(--space-sm);padding:7px 0;border-bottom:1px solid var(--border-default);">
           <div class="my-task-check${st.status==='Done'?' done':''}" onclick="drawerToggleSubtask('${t.id}',${i})">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
           <span style="flex:1;font-size:var(--text-sm);${st.status==='Done'?'text-decoration:line-through;color:var(--text-muted)':'color:var(--text-primary);'}">${escHtml(st.title)}</span>
-          ${_statusBadge(st.status)}
+          <button onclick="drawerDeleteStep('${t.id}',${i})" title="Remove step"
+            style="flex-shrink:0;background:none;border:none;cursor:pointer;color:var(--text-muted);padding:2px;line-height:1;opacity:0.5;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">
+            <svg viewBox="0 0 12 12" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg>
+          </button>
         </div>`).join('')}
-    </div>` : ''}
+      <!-- Quick add step inline -->
+      <div style="display:flex;gap:6px;align-items:center;margin-top:8px;">
+        <input id="drawer-new-step-${t.id}" type="text" placeholder="+ Add a step…"
+          style="flex:1;font-size:12px;padding:6px 10px;border-radius:var(--radius-md);border:1.5px solid var(--border-default);background:var(--bg-elevated);color:var(--text-primary);outline:none;"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();drawerAddStep('${t.id}')}"
+          onfocus="this.style.borderColor='var(--brand-primary)'" onblur="this.style.borderColor='var(--border-default)'" />
+        <button onclick="drawerAddStep('${t.id}')"
+          style="padding:6px 12px;border-radius:var(--radius-md);border:none;background:var(--brand-primary);color:#000;font-size:12px;font-weight:700;cursor:pointer;">Add</button>
+      </div>
+    </div>
 
     <!-- Dependencies -->
     ${(t.dependsOn||[]).length ? `
@@ -10564,7 +10998,7 @@ function openTaskDrawer(id) {
     ${t.recurrence && t.recurrence!=='None' ? `
     <div>
       <div class="drawer-section-title">Recurrence</div>
-      <span class="badge badge-neutral"> ${t.recurrence}</span>
+      <span class="badge badge-neutral">🔁 ${(window._recurLabel||((r)=>r))(t.recurrence)}</span>
     </div>` : ''}
 
     <!-- Watchers -->
@@ -10696,8 +11130,35 @@ function drawerToggleSubtask(taskId, idx) {
   const t = (window.TeamOS.DS?.tasks||[]).find(x=>x.id===taskId);
   if (!t || !t.subtasks?.[idx]) return;
   t.subtasks[idx].status = t.subtasks[idx].status==='Done' ? 'To Do' : 'Done';
+  _saveLocal();
   GAS.saveTask(t);
   openTaskDrawer(taskId); // re-render drawer
+}
+
+function drawerAddStep(taskId) {
+  const input = document.getElementById('drawer-new-step-' + taskId);
+  const title = input?.value.trim();
+  if (!title) { if (input) { input.focus(); input.style.borderColor='var(--brand-danger)'; setTimeout(()=>input.style.borderColor='var(--border-default)',1000); } return; }
+  const t = (window.TeamOS.DS?.tasks||[]).find(x=>x.id===taskId);
+  if (!t) return;
+  if (!t.subtasks) t.subtasks = [];
+  t.subtasks.push({ id: 'ST-' + Date.now(), title, status: 'To Do' });
+  t.updatedAt = new Date().toISOString();
+  _saveLocal();
+  try { GAS.saveTask(t); } catch(e) {}
+  openTaskDrawer(taskId); // re-render drawer with new step
+  showToast({ type:'success', title:'Step added', message: title });
+}
+
+function drawerDeleteStep(taskId, idx) {
+  const t = (window.TeamOS.DS?.tasks||[]).find(x=>x.id===taskId);
+  if (!t || !t.subtasks) return;
+  const removed = t.subtasks.splice(idx, 1)[0];
+  t.updatedAt = new Date().toISOString();
+  _saveLocal();
+  try { GAS.saveTask(t); } catch(e) {}
+  openTaskDrawer(taskId);
+  showToast({ type:'warning', title:'Step removed', message: removed?.title || '' });
 }
 
 function _watcherChips(taskId, watchers) {
@@ -11390,7 +11851,7 @@ function renderRecurringPage() {
                 <div style="font-size:var(--text-xs);color:var(--text-muted);">${t.brand||''}${t.project?' · '+t.project:''}</div>
                 ${_subtaskMini(t.subtasks)}
               </td>
-              <td><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:var(--radius-full);background:${freqColor[t.recurrence]||'#6B7280'}20;color:${freqColor[t.recurrence]||'#6B7280'};">🔁 ${t.recurrence}</span></td>
+              <td><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:var(--radius-full);background:${(freqColor[t.recurrence.split(':')[0]]||'#6B7280')}20;color:${freqColor[t.recurrence.split(':')[0]]||'#6B7280'};">🔁 ${(window._recurLabel||((r)=>r))(t.recurrence)}</span></td>
               <td>${_assigneeAvatars(t.assignees||[])}</td>
               <td><span style="font-size:var(--text-xs);font-weight:600;color:${isOverdue?'var(--brand-danger)':isDueToday?'var(--brand-warning)':'var(--text-muted)'};">${t.due||'—'}${isOverdue?' ⚠️':''}${isDueToday?' 📅 Today':''}</span></td>
               <td><span style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);">${t.dueTime||'—'}</span></td>
@@ -11416,30 +11877,79 @@ function renderRecurringPage() {
 
 /* ── RECURRING TASK REMINDER CHECKER (runs every 60s) ──────────────────── */
 document.addEventListener('teamos:ready', () => {
+  /* ── Browser Push Notification permission request ──────────────────── */
+  function _requestPushPermission() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }
+  /* Ask for permission 3 seconds after login */
+  setTimeout(_requestPushPermission, 3000);
+
+  /* Send a native browser push notification */
+  function _browserPush(title, body, tag) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    try {
+      new Notification(title, {
+        body,
+        tag: tag || 'iipl-reminder',
+        icon: 'https://iiplteam.netlify.app/favicon.ico',
+        requireInteraction: true,   /* stays until dismissed — like WhatsApp */
+        silent: false,
+      });
+    } catch(e) {}
+  }
+
   function _checkRecurringReminders() {
     const uid  = window.TeamOS.currentUser?.initials || '';
     const now  = new Date();
     const hhmm = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
     const today = now.toISOString().slice(0,10);
+    const todayDay = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][now.getDay()];
+    const todayDate = now.getDate();
+
     (window.TeamOS.DS?.tasks || []).forEach(t => {
       if (!t.recurrence || t.recurrence === 'None') return;
       if (t.status === 'Done' || t.status === 'Cancelled') return;
       if (!t.dueTime) return;
       const isAssignee = (t.assignees||[]).includes(uid) || t.owner === uid;
       if (!isAssignee) return;
-      /* Fire reminder if due date is today and time matches current minute */
-      if (t.due === today && t.dueTime === hhmm) {
-        pushNotif('🔁', `<strong>Reminder:</strong> "${escHtml(t.title)}" is due now (${hhmm})`, t.id);
-        /* Also send an email reminder to each assignee */
-        const allAssignees = [...new Set([...(t.assignees||[]), t.owner].filter(Boolean))];
-        allAssignees.forEach(aUid => {
-          _sendEmail(aUid,
-            `⏰ Task due now: ${t.title}`,
-            `This is your reminder that the following task is due right now (${hhmm}).\n\nTask: ${t.title}\nDue: ${t.due} at ${hhmm}\nPriority: ${t.priority||'Normal'}\nProject: ${t.brand||''}`,
-            t.title
-          );
-        });
-      }
+      if (t.dueTime !== hhmm) return;
+
+      /* Check if today matches the recurrence pattern */
+      const base = t.recurrence.split(':')[0];
+      const days = t.recurrence.includes(':') ? t.recurrence.split(':')[1].split(',') : [];
+      let shouldFire = false;
+
+      if (base === 'Daily')    shouldFire = true;
+      else if (base === 'Weekly')   shouldFire = days.includes(todayDay);
+      else if (base === 'Biweekly') shouldFire = days.includes(todayDay); /* simplified — fires every matching weekday */
+      else if (base === 'Monthly')  shouldFire = (parseInt(days[0],10) === todayDate);
+      else if (base === 'Custom')   shouldFire = days.includes(todayDay);
+      else if (t.due === today)     shouldFire = true; /* fallback for plain strings */
+
+      if (!shouldFire) return;
+
+      /* In-app notification */
+      pushNotif('🔁', `<strong>Recurring reminder:</strong> "${escHtml(t.title)}" — due today at ${hhmm}`, t.id);
+
+      /* Browser push (shows even if tab is in background) */
+      _browserPush(
+        `⏰ IIPL Reminder: ${t.title}`,
+        `Due today at ${hhmm}  ·  ${t.priority||'Normal'} priority  ·  ${t.brand||''}`,
+        'iipl-' + t.id
+      );
+
+      /* Email fallback */
+      const allAssignees = [...new Set([...(t.assignees||[]), t.owner].filter(Boolean))];
+      allAssignees.forEach(aUid => {
+        _sendEmail(aUid,
+          `⏰ Recurring task due: ${t.title}`,
+          `Reminder: the following recurring task is due today at ${hhmm}.\n\nTask: ${t.title}\nDue time: ${hhmm}\nPriority: ${t.priority||'Normal'}\nProject: ${t.brand||''}`,
+          t.title
+        );
+      });
     });
   }
   setInterval(_checkRecurringReminders, 60000);
