@@ -6366,7 +6366,12 @@ document.addEventListener('teamos:navigate', function(e) {
          If running in GAS, wait for syncAll() to call renderDashboard(). */
       if (!_inGAS() || DS._synced) renderDashboard();
       break;
-    case 'tasks':      renderTasksPage();      break;
+    case 'tasks':
+      /* If filter bar already exists, just re-filter to preserve search/filter state.
+         Only do a full rebuild on first load (when the bar doesn't exist yet). */
+      if (document.getElementById('tasks-search')) { filterTasks(); }
+      else { renderTasksPage(); }
+      break;
     case 'kanban':     renderKanbanPage();     break;
     case 'brands':     renderProjectsPage();  break;
     case 'team':       renderTeamPage();       break;
@@ -9463,7 +9468,7 @@ document.addEventListener('teamos:saveTask', function(e) {
   /* Refresh current page */
   const p = window.TeamOS.currentPage;
   if (p==='dashboard') renderDashboard();
-  else if (p==='tasks') renderTasksPage();
+  else if (p==='tasks') { if (document.getElementById('tasks-search')) filterTasks(); else renderTasksPage(); }
   else if (p==='kanban') renderKanbanPage();
   else if (p==='mytasks') renderMyTasksPage();
   /* Update nav badge */
