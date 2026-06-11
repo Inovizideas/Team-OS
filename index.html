@@ -3774,7 +3774,7 @@
   M3  END-OF-DAY REPORT MODAL
  -->
 <div class="modal-overlay" id="modal-eod-overlay">
-  <div class="modal modal-lg" id="modal-eod" role="dialog" aria-modal="true" aria-labelledby="modal-eod-title">
+  <div class="modal modal-lg" id="modal-eod" role="dialog" aria-modal="true" aria-labelledby="modal-eod-title" onclick="event.stopPropagation()">
 
     <div class="modal-header">
       <h3 class="modal-title" id="modal-eod-title">
@@ -3813,17 +3813,6 @@
           What did you complete today?
         </div>
         <textarea class="form-textarea" id="eod-completed" rows="3" placeholder="List tasks or milestones you finished"></textarea>
-      </div>
-
-      <!-- 2  In Progress -->
-      <div class="eod-section">
-        <div class="eod-label">
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </svg>
-          What's still in progress?
-        </div>
-        <textarea class="form-textarea" id="eod-inprogress" rows="2" placeholder="Ongoing work carrying into tomorrow"></textarea>
       </div>
 
       <!-- 3  Blockers -->
@@ -5022,7 +5011,7 @@
     document.getElementById('eod-date-label').textContent = 'Today, ' + now.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'short' });
     document.getElementById('eod-user-label').textContent = user ? user.name : '';
     // Reset fields
-    ['eod-completed','eod-inprogress','eod-tomorrow','eod-notes'].forEach(id => {
+    ['eod-completed','eod-tomorrow','eod-notes'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
@@ -5062,6 +5051,12 @@
       }
     }
     openModal('modal-eod-overlay');
+    /* EOD modal must NOT close on Escape or backdrop click — too easy to lose typed data */
+    const _eodOverlay = document.getElementById('modal-eod-overlay');
+    if (_eodOverlay && _eodOverlay._escHandler) {
+      document.removeEventListener('keydown', _eodOverlay._escHandler);
+      _eodOverlay._escHandler = null;
+    }
   }
 
   function addEodBlocker() {
@@ -5105,7 +5100,7 @@
       date:        new Date().toISOString(),
       user:        window.TeamOS.currentUser?.email || '',
       completed,
-      inProgress:  document.getElementById('eod-inprogress').value.trim(),
+      inProgress:  '',
       blockers,
       tomorrow:    document.getElementById('eod-tomorrow').value.trim(),
       mood:        _selectedMood,
