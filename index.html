@@ -4459,8 +4459,13 @@
     if (!overlay) return;
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
-    // trap Escape key
-    overlay._escHandler = (e) => { if (e.key === 'Escape') closeModal(overlayId); };
+    // Escape key — only close if user is NOT actively typing in an input/textarea
+    overlay._escHandler = (e) => {
+      if (e.key !== 'Escape') return;
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+      closeModal(overlayId);
+    };
     document.addEventListener('keydown', overlay._escHandler);
   }
 
@@ -4477,10 +4482,15 @@
     }
   }
 
-  // Close overlay when clicking backdrop
+  // Backdrop click: only close simple/non-data-entry modals (status, reject, announce, comments).
+  // Task, EOD, subtask, project modals are data-entry — clicking outside must NOT lose work.
+  const _safeBackdropClose = new Set([
+    'modal-status-overlay','modal-reject-overlay','modal-announce-overlay',
+    'modal-comment-overlay','modal-checkin-overlay',
+  ]);
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', function(e) {
-      if (e.target === this) closeModal(this.id);
+      if (e.target === this && _safeBackdropClose.has(this.id)) closeModal(this.id);
     });
   });
 
