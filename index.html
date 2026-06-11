@@ -1152,7 +1152,16 @@
       opacity: 0;
       visibility: hidden;
       transition: opacity var(--transition-base), visibility var(--transition-base);
+      /* Backdrop is non-interactive by default — only the modal card receives clicks.
+         Prevents every form modal from closing when the user clicks outside. */
+      pointer-events: none;
     }
+
+    /* Opt-in: lightweight/non-data modals that are safe to close on backdrop click */
+    .modal-overlay.backdrop-close { pointer-events: auto; }
+
+    /* The inner card always receives clicks regardless */
+    .modal-overlay .modal { pointer-events: auto; }
 
     .modal-overlay.open {
       opacity: 1;
@@ -3774,7 +3783,7 @@
   M3  END-OF-DAY REPORT MODAL
  -->
 <div class="modal-overlay" id="modal-eod-overlay">
-  <div class="modal modal-lg" id="modal-eod" role="dialog" aria-modal="true" aria-labelledby="modal-eod-title" onclick="event.stopPropagation()">
+  <div class="modal modal-lg" id="modal-eod" role="dialog" aria-modal="true" aria-labelledby="modal-eod-title">
 
     <div class="modal-header">
       <h3 class="modal-title" id="modal-eod-title">
@@ -3903,7 +3912,7 @@
 <!-- 
   M4  QUICK STATUS MODAL
  -->
-<div class="modal-overlay" id="modal-quickstatus-overlay">
+<div class="modal-overlay backdrop-close" id="modal-quickstatus-overlay">
   <div class="modal modal-sm" id="modal-quickstatus" role="dialog" aria-modal="true" aria-labelledby="modal-qs-title">
 
     <div class="modal-header">
@@ -4098,7 +4107,7 @@
 <!-- 
   M7  REJECT MODAL
  -->
-<div class="modal-overlay" id="modal-reject-overlay">
+<div class="modal-overlay backdrop-close" id="modal-reject-overlay">
   <div class="modal modal-sm" id="modal-reject" role="dialog" aria-modal="true" aria-labelledby="modal-reject-title">
 
     <div class="modal-header" style="border-top:3px solid var(--brand-danger);">
@@ -4224,7 +4233,7 @@
 <!-- 
   M9  ANNOUNCE MODAL  (broadcast to team)
  -->
-<div class="modal-overlay" id="modal-announce-overlay">
+<div class="modal-overlay backdrop-close" id="modal-announce-overlay">
   <div class="modal" id="modal-announce" role="dialog" aria-modal="true" aria-labelledby="modal-announce-title">
 
     <div class="modal-header">
@@ -4482,16 +4491,12 @@
     }
   }
 
-  // Backdrop click: only close simple/non-data-entry modals (status, reject, announce, comments).
-  // Task, EOD, subtask, project modals are data-entry — clicking outside must NOT lose work.
-  const _safeBackdropClose = new Set([
-    'modal-status-overlay','modal-reject-overlay','modal-announce-overlay',
-    'modal-comment-overlay','modal-checkin-overlay',
-  ]);
-  document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', function(e) {
-      if (e.target === this && _safeBackdropClose.has(this.id)) closeModal(this.id);
-    });
+  // Backdrop click: close only overlays with the .backdrop-close CSS class.
+  // CSS sets pointer-events:none on all other overlays so clicks can't reach them.
+  // Event delegation handles both static and dynamically-created modals.
+  document.addEventListener('click', function(e) {
+    const overlay = e.target.closest?.('.modal-overlay.backdrop-close');
+    if (overlay && e.target === overlay) closeModal(overlay.id);
   });
 
   function updateCharCounter(inputId, counterId, max) {
@@ -5061,12 +5066,6 @@
       }
     }
     openModal('modal-eod-overlay');
-    /* EOD modal must NOT close on Escape or backdrop click — too easy to lose typed data */
-    const _eodOverlay = document.getElementById('modal-eod-overlay');
-    if (_eodOverlay && _eodOverlay._escHandler) {
-      document.removeEventListener('keydown', _eodOverlay._escHandler);
-      _eodOverlay._escHandler = null;
-    }
   }
 
   function addEodBlocker() {
