@@ -3166,6 +3166,23 @@
   .dep-tag button:hover { opacity: 1; }
   .dep-tag button svg { width: 10px; height: 10px; }
 
+  .dep-search-wrap { position: relative; flex: 1; min-width: 160px; }
+  .dep-search-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 9999;
+    background: var(--bg-surface); border: 1.5px solid var(--border-strong);
+    border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    max-height: 200px; overflow-y: auto; display: none;
+  }
+  .dep-search-dropdown.open { display: block; }
+  .dep-search-item {
+    padding: 8px 12px; cursor: pointer; font-size: var(--text-sm);
+    border-bottom: 1px solid var(--border-default); transition: background .1s;
+  }
+  .dep-search-item:last-child { border-bottom: none; }
+  .dep-search-item:hover, .dep-search-item.focused { background: var(--bg-elevated); }
+  .dep-search-item-title { font-weight: 600; color: var(--text-primary); }
+  .dep-search-item-meta  { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
   .dep-tag-input {
     border: none;
     outline: none;
@@ -3680,18 +3697,25 @@
 
       <!-- Depends On -->
       <div class="modal-section">
-        <div class="modal-section-title">Depends On (Task IDs)</div>
-        <div class="depends-tags" id="task-depends-container" onclick="document.getElementById('task-depends-input').focus()">
+        <div class="modal-section-title">Depends On</div>
+        <div class="depends-tags" id="task-depends-container">
           <!-- dep-tags injected here -->
+        </div>
+        <div class="dep-search-wrap" style="margin-top:6px;">
           <input
             type="text"
-            class="dep-tag-input"
+            class="form-input"
             id="task-depends-input"
-            placeholder="Type task ID and press Enter"
-            onkeydown="handleDepTagInput(event)"
+            placeholder="Search task by name…"
+            autocomplete="off"
+            oninput="_depSearch(this.value)"
+            onkeydown="_depSearchKey(event)"
+            onfocus="_depSearch(this.value)"
+            onblur="setTimeout(()=>_depCloseDropdown(),180)"
           />
+          <div class="dep-search-dropdown" id="dep-search-dropdown"></div>
         </div>
-        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px;">Press Enter or comma to add. Click tag  to remove.</div>
+        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px;">Search and select tasks this task is waiting on. Click × to remove.</div>
       </div>
 
       <!-- Attachments -->
@@ -4941,42 +4965,97 @@
   }
 
   /* Dependency tag input */
-  function handleDepTagInput(e) {
-    if (e.key === 'Enter' || e.key === ',') {
+  let _depFocusIdx = -1;
+
+  function _depSearch(q) {
+    const dd = document.getElementById('dep-search-dropdown');
+    if (!dd) return;
+    const currentEditId = document.getElementById('task-modal-id')?.value || '';
+    const q2 = q.trim().toLowerCase();
+    const all = (window.TeamOS?.DS?.tasks || []);
+    const matches = all
+      .filter(t =>
+        t.id !== currentEditId &&
+        !_depTagsBuffer.includes(t.id) &&
+        (!q2 || t.title.toLowerCase().includes(q2))
+      )
+      .slice(0, 8);
+
+    if (!matches.length) {
+      dd.innerHTML = `<div class="dep-search-item" style="color:var(--text-muted);cursor:default;">${q2 ? 'No tasks match "' + q + '"' : 'No tasks available'}</div>`;
+    } else {
+      _depFocusIdx = -1;
+      dd.innerHTML = matches.map((t, i) => {
+        const owner = (window.TEAM_MEMBERS||[]).find(m => m.id === t.owner);
+        return `<div class="dep-search-item" data-id="${t.id}" data-idx="${i}"
+          onmousedown="event.preventDefault();_depPickTask('${t.id}')">
+          <div class="dep-search-item-title">${escHtml(t.title)}</div>
+          <div class="dep-search-item-meta">${t.status||''}${owner ? ' · ' + owner.name.split(' ')[0] : ''}${t.due ? ' · Due ' + t.due : ''}</div>
+        </div>`;
+      }).join('');
+    }
+    dd.classList.add('open');
+  }
+
+  function _depSearchKey(e) {
+    const dd = document.getElementById('dep-search-dropdown');
+    if (!dd || !dd.classList.contains('open')) return;
+    const items = dd.querySelectorAll('.dep-search-item[data-id]');
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
-      const val = e.target.value.trim().replace(/,$/, '');
-      if (val && !_depTagsBuffer.includes(val)) {
-        _depTagsBuffer.push(val);
-        renderDepTags();
+      _depFocusIdx = Math.min(_depFocusIdx + 1, items.length - 1);
+      items.forEach((el, i) => el.classList.toggle('focused', i === _depFocusIdx));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _depFocusIdx = Math.max(_depFocusIdx - 1, 0);
+      items.forEach((el, i) => el.classList.toggle('focused', i === _depFocusIdx));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (_depFocusIdx >= 0 && items[_depFocusIdx]) {
+        _depPickTask(items[_depFocusIdx].dataset.id);
       }
-      e.target.value = '';
-    } else if (e.key === 'Backspace' && e.target.value === '' && _depTagsBuffer.length) {
-      _depTagsBuffer.pop();
-      renderDepTags();
+    } else if (e.key === 'Escape') {
+      _depCloseDropdown();
     }
   }
 
-  function removeDepTag(val) {
-    _depTagsBuffer = _depTagsBuffer.filter(v => v !== val);
+  function _depPickTask(taskId) {
+    if (!taskId || _depTagsBuffer.includes(taskId)) return;
+    _depTagsBuffer.push(taskId);
+    renderDepTags();
+    const inp = document.getElementById('task-depends-input');
+    if (inp) inp.value = '';
+    _depCloseDropdown();
+  }
+
+  function _depCloseDropdown() {
+    const dd = document.getElementById('dep-search-dropdown');
+    if (dd) dd.classList.remove('open');
+  }
+
+  function removeDepTag(taskId) {
+    _depTagsBuffer = _depTagsBuffer.filter(v => v !== taskId);
     renderDepTags();
   }
 
   function renderDepTags() {
     const container = document.getElementById('task-depends-container');
-    const input     = document.getElementById('task-depends-input');
-    if (!container || !input) return;
-    // Remove existing tags
+    if (!container) return;
     container.querySelectorAll('.dep-tag').forEach(el => el.remove());
-    _depTagsBuffer.forEach(val => {
+    const allTasks = window.TeamOS?.DS?.tasks || [];
+    _depTagsBuffer.forEach(id => {
+      const linked = allTasks.find(t => t.id === id);
+      const label  = linked ? linked.title : id;   /* title if found, raw ID as fallback */
       const tag = document.createElement('span');
       tag.className = 'dep-tag';
-      tag.innerHTML = `${val}
-        <button onclick="removeDepTag('${val}')" aria-label="Remove ${val}">
+      tag.title = id;
+      tag.innerHTML = `<span style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(label)}</span>
+        <button onclick="removeDepTag('${id}')" aria-label="Remove">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>`;
-      container.insertBefore(tag, input);
+      container.appendChild(tag);
     });
   }
 
@@ -11426,7 +11505,11 @@ function openTaskDrawer(id) {
     <div>
       <div class="drawer-section-title">Depends On</div>
       <div style="display:flex;flex-wrap:wrap;gap:var(--space-xs);">
-        ${t.dependsOn.map(dep => `<span class="badge badge-primary"> ${escHtml(dep)}</span>`).join('')}
+        ${t.dependsOn.map(dep => {
+          const linked = DS.tasks.find(x => x.id === dep);
+          const label  = linked ? linked.title : dep;
+          return `<span class="badge badge-primary" title="${escHtml(dep)}" style="cursor:pointer;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="openTaskDrawer('${dep}')">${escHtml(label)}</span>`;
+        }).join('')}
       </div>
     </div>` : ''}
 
