@@ -6430,18 +6430,25 @@
   .my-task-row:hover { border-color: var(--border-focus); box-shadow: var(--shadow-sm); }
 
   .my-task-check {
-    width: 18px; height: 18px;
+    width: 16px; height: 16px;
     border: 2px solid var(--border-strong);
-    border-radius: 5px;
+    border-radius: 3px;
     flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all 0.15s ease;
   }
-
-  .my-task-check.done { background: var(--brand-success); border-color: var(--brand-success); }
-  .my-task-check.done svg { opacity: 1; }
-  .my-task-check svg { width: 11px; height: 11px; color: white; opacity: 0; }
+  .my-task-check:hover { border-color: var(--brand-primary); background: rgba(240,180,41,0.12); }
+  .my-task-check.selected { background: var(--brand-primary); border-color: var(--brand-primary); }
+  .my-task-check.selected svg { opacity: 1; }
+  .my-task-check svg { width: 10px; height: 10px; color: #111; opacity: 0; transition: opacity 0.1s; }
+  .bulk-action-bar { display:flex; align-items:center; gap:10px; background:var(--bg-elevated); border:1.5px solid var(--brand-primary); border-radius:var(--radius-md); padding:8px 14px; margin-bottom:12px; font-size:var(--text-sm); animation:fadeIn 0.15s ease; }
+  .bulk-action-bar .bulk-count { font-weight:700; color:var(--text-primary); }
+  .bulk-action-bar select { font-size:var(--text-xs); padding:4px 8px; border-radius:var(--radius-sm); border:1px solid var(--border-default); background:var(--bg-default); color:var(--text-primary); cursor:pointer; }
+  .bulk-action-bar .bulk-del { font-size:var(--text-xs); padding:4px 10px; border-radius:var(--radius-sm); background:rgba(239,68,68,0.10); color:var(--brand-danger); border:1px solid rgba(239,68,68,0.25); cursor:pointer; font-weight:600; }
+  .bulk-action-bar .bulk-clr { font-size:var(--text-xs); padding:4px 10px; border-radius:var(--radius-sm); background:none; color:var(--text-muted); border:1px solid var(--border-default); cursor:pointer; }
+  tr.bulk-selected > td { background:rgba(240,180,41,0.06) !important; }
+  .my-task-row.bulk-selected { background:rgba(240,180,41,0.06) !important; }
 
   .my-task-title {
     flex: 1;
@@ -7637,12 +7644,18 @@ function filterTasks() {
 function _tasksListHTML(tasks) {
   if (!tasks.length) return `<div class="card"><div class="empty-state"><div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><h3>No tasks match your filters</h3></div></div>`;
 
+  const _allIds = tasks.map(t => t.id);
   return `
+    ${_bulkBarHtml(_allIds)}
     <div class="table-wrapper">
       <table>
         <thead>
           <tr>
-            <th style="width:36px;"></th>
+            <th style="width:36px;">
+              <div class="my-task-check${_allIds.every(id=>_bulkSel.has(id))&&_allIds.length?' selected':''}" data-bulk="all" onclick="_bulkSelectAll([${_allIds.map(id=>`'${id}'`).join(',')}])" title="Select all">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+            </th>
             <th>Title</th>
             <th>Status</th>
             <th>Priority</th>
@@ -7654,10 +7667,10 @@ function _tasksListHTML(tasks) {
         </thead>
         <tbody>
           ${tasks.map((t,i) => `
-            <tr>
+            <tr data-bulk-row="${t.id}" class="${_bulkSel.has(t.id)?'bulk-selected':''}">
               <td>
                 <div style="display:flex;flex-direction:column;gap:1px;align-items:center;">
-                  <div class="my-task-check${t.status==='Done'?' done':''}" onclick="toggleTaskDone('${t.id}')" title="Toggle done">
+                  <div class="my-task-check${_bulkSel.has(t.id)?' selected':''}" data-bulk="${t.id}" onclick="_bulkToggleSelect('${t.id}')" title="Select task">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                   </div>
                   ${isAdmin() ? `<button onclick="reorderTask('${t.id}',-1)" title="Move up" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;line-height:1;font-size:10px;" ${i===0?'disabled':''}>▲</button>
@@ -7892,10 +7905,11 @@ function renderMyTasksPage() {
       </div>
     </div>
 
+    ${_bulkBarHtml(myTasks.map(t=>t.id))}
     <div style="display:flex;flex-direction:column;gap:var(--space-sm);" id="my-tasks-list">
       ${myTasks.length ? myTasks.map((t, i) => `
-        <div class="my-task-row" id="mtr-${t.id}">
-          <div class="my-task-check${t.status==='Done'?' done':''}" onclick="toggleTaskDone('${t.id}');renderMyTasksPage();" title="Mark done">
+        <div class="my-task-row${_bulkSel.has(t.id)?' bulk-selected':''}" id="mtr-${t.id}" data-bulk-row="${t.id}">
+          <div class="my-task-check${_bulkSel.has(t.id)?' selected':''}" data-bulk="${t.id}" onclick="_bulkToggleSelect('${t.id}')" title="Select task">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
           <div style="flex:1;min-width:0;">
@@ -11762,6 +11776,126 @@ function deleteTaskFromModal() {
   openModal('modal-delete-task-overlay');
 }
 
+/* ── BULK SELECTION ──────────────────────────────────────────────────────── */
+window._bulkSel = new Set();
+
+function _bulkToggleSelect(id) {
+  if (_bulkSel.has(id)) _bulkSel.delete(id); else _bulkSel.add(id);
+  const chk = document.querySelector(`.my-task-check[data-bulk="${id}"]`);
+  if (chk) chk.classList.toggle('selected', _bulkSel.has(id));
+  const row = document.querySelector(`[data-bulk-row="${id}"]`);
+  if (row) row.classList.toggle('bulk-selected', _bulkSel.has(id));
+  _bulkUpdateBar();
+  _bulkSyncAllChk();
+}
+
+function _bulkSelectAll(ids) {
+  const allOn = ids.every(id => _bulkSel.has(id));
+  ids.forEach(id => { if (allOn) _bulkSel.delete(id); else _bulkSel.add(id); });
+  ids.forEach(id => {
+    const chk = document.querySelector(`.my-task-check[data-bulk="${id}"]`);
+    if (chk) chk.classList.toggle('selected', _bulkSel.has(id));
+    const row = document.querySelector(`[data-bulk-row="${id}"]`);
+    if (row) row.classList.toggle('bulk-selected', _bulkSel.has(id));
+  });
+  _bulkUpdateBar();
+  _bulkSyncAllChk();
+}
+
+function _bulkSyncAllChk() {
+  const allChks = [...document.querySelectorAll('.my-task-check[data-bulk]')];
+  const allChkEl = document.querySelector('.my-task-check[data-bulk="all"]');
+  if (!allChkEl || !allChks.length) return;
+  const rowIds = allChks.filter(el => el.dataset.bulk !== 'all').map(el => el.dataset.bulk);
+  const selCount = rowIds.filter(id => _bulkSel.has(id)).length;
+  allChkEl.classList.toggle('selected', selCount > 0 && selCount === rowIds.length);
+}
+
+function _bulkUpdateBar() {
+  const bar = document.getElementById('bulk-action-bar');
+  if (!bar) return;
+  const n = _bulkSel.size;
+  if (n === 0) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  const cEl = bar.querySelector('.bulk-count');
+  if (cEl) cEl.textContent = `${n} task${n !== 1 ? 's' : ''} selected`;
+}
+
+function _bulkClearAll() {
+  _bulkSel.clear();
+  document.querySelectorAll('.my-task-check[data-bulk]').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('[data-bulk-row]').forEach(el => el.classList.remove('bulk-selected'));
+  _bulkUpdateBar();
+  _bulkSyncAllChk();
+}
+
+function _bulkChangeStatus(status) {
+  if (!isAdmin() || !status) return;
+  [..._bulkSel].forEach(id => {
+    const t = DS.tasks.find(x => x.id === id);
+    if (!t) return;
+    t.status = status;
+    document.dispatchEvent(new CustomEvent('teamos:updateStatus', { detail: { taskId: id, status } }));
+  });
+  showToast({ type:'success', title:'Status updated', message:`${_bulkSel.size} tasks set to "${status}"` });
+  _bulkClearAll();
+  document.dispatchEvent(new CustomEvent('teamos:navigate', { detail:{ page: window.TeamOS.currentPage } }));
+}
+
+function _bulkDeleteSelected() {
+  if (!isAdmin()) return;
+  const ids = [..._bulkSel];
+  if (!ids.length) return;
+  /* Reuse the styled delete modal — point _drawerTask at a synthetic object */
+  window._drawerTask = { id: '__bulk__', title: `${ids.length} task${ids.length!==1?'s':''}`, _bulkIds: ids };
+  let m = document.getElementById('modal-delete-task-overlay');
+  if (!m) { deleteTaskFromDrawer(); return; }
+  document.getElementById('delete-task-name').textContent = `${ids.length} task${ids.length!==1?'s':''}`;
+  const confirmBtn = m.querySelector('button[onclick="_confirmDeleteTask()"]');
+  if (confirmBtn) confirmBtn.onclick = _confirmBulkDelete;
+  openModal('modal-delete-task-overlay');
+}
+
+function _confirmBulkDelete() {
+  const ids = (window._drawerTask?._bulkIds) || [];
+  ids.forEach(id => {
+    DS.tasks = DS.tasks.filter(x => x.id !== id);
+    GAS.deleteTask(id);
+  });
+  _saveLocal();
+  closeModal('modal-delete-task-overlay');
+  closeTaskDrawer();
+  window._drawerTask = null;
+  /* Restore confirm button to single-delete */
+  const m = document.getElementById('modal-delete-task-overlay');
+  if (m) { const btn = m.querySelector('button'); if (btn) btn.onclick = null; const confirmBtn = m.querySelector('.btn-sm'); if (confirmBtn) confirmBtn.setAttribute('onclick', '_confirmDeleteTask()'); }
+  showToast({ type:'warning', title:'Deleted', message:`${ids.length} task${ids.length!==1?'s':''} deleted` });
+  _bulkClearAll();
+  document.dispatchEvent(new CustomEvent('teamos:navigate', { detail:{ page: window.TeamOS.currentPage } }));
+}
+
+function _bulkBarHtml(taskIds) {
+  const admin = isAdmin();
+  return `<div id="bulk-action-bar" class="bulk-action-bar" style="display:none;">
+    <span class="bulk-count">0 tasks selected</span>
+    <span style="flex:1;"></span>
+    ${admin ? `<select onchange="_bulkChangeStatus(this.value);this.value='';">
+      <option value="">Change Status…</option>
+      <option value="To Do">To Do</option>
+      <option value="In Progress">In Progress</option>
+      <option value="In Review">In Review</option>
+      <option value="Done">Done</option>
+      <option value="Blocked">Blocked</option>
+      <option value="Cancelled">Cancelled</option>
+    </select>
+    <button class="bulk-del" onclick="_bulkDeleteSelected()">🗑 Delete selected</button>` : ''}
+    <button class="bulk-clr" onclick="_bulkClearAll()">✕ Clear</button>
+  </div>`;
+}
+
+/* Reset selection on page navigation */
+document.addEventListener('teamos:navigate', () => { _bulkSel.clear(); });
+
 function duplicateTask(id) {
   if (!isAdmin()) {
     showToast({ type:'warning', title:'Admin only', message:'Only admins can duplicate tasks.' });
@@ -12438,14 +12572,22 @@ function renderMiscTasksPage() {
       </div>
     </div>
     ${tasks.length ? `
+    ${_bulkBarHtml(tasks.map(t=>t.id))}
     <div class="table-wrapper">
       <table>
-        <thead><tr><th></th><th>Task</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Due</th><th></th></tr></thead>
+        <thead><tr>
+          <th style="width:36px;">
+            <div class="my-task-check${tasks.every(t=>_bulkSel.has(t.id))&&tasks.length?' selected':''}" data-bulk="all" onclick="_bulkSelectAll([${tasks.map(t=>`'${t.id}'`).join(',')}])" title="Select all">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </th>
+          <th>Task</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Due</th><th></th>
+        </tr></thead>
         <tbody>
-          ${tasks.map((t,i) => `<tr>
+          ${tasks.map((t,i) => `<tr data-bulk-row="${t.id}" class="${_bulkSel.has(t.id)?'bulk-selected':''}">
             <td>
               <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-                <div class="my-task-check${t.status==='Done'?' done':''}" onclick="toggleTaskDone('${t.id}');renderMiscTasksPage();" title="Done">
+                <div class="my-task-check${_bulkSel.has(t.id)?' selected':''}" data-bulk="${t.id}" onclick="_bulkToggleSelect('${t.id}')" title="Select task">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 </div>
                 ${admin?`<button onclick="reorderTask('${t.id}',-1)" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:10px;padding:0;" ${i===0?'disabled':''}>▲</button>
