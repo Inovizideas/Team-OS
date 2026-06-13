@@ -3782,6 +3782,10 @@
 
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-task-overlay')">Cancel</button>
+      <button class="btn btn-sm" id="task-modal-delete-btn" style="display:none;background:rgba(239,68,68,0.12);color:#EF4444;border:1.5px solid rgba(239,68,68,0.28);font-weight:600;padding:6px 14px;border-radius:var(--radius-md);cursor:pointer;" onclick="deleteTaskFromModal()">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-1px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        Delete Task
+      </button>
       <button class="btn btn-primary" id="task-modal-save-btn" onclick="saveTaskModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -4716,6 +4720,10 @@
     // Char counters
     updateCharCounter('task-title', 'task-title-counter', 120);
     updateCharCounter('task-desc',  'task-desc-counter',  500);
+
+    /* Show delete button only when editing an existing task as admin */
+    const _delBtn = document.getElementById('task-modal-delete-btn');
+    if (_delBtn) _delBtn.style.display = (taskData && isAdmin()) ? 'inline-flex' : 'none';
 
     openModal('modal-task-overlay');
     setTimeout(() => { _renderInlineSteps(); document.getElementById('task-title').focus(); }, 120);
@@ -11726,6 +11734,32 @@ function _confirmDeleteTask() {
   closeTaskDrawer();
   showToast({ type: 'warning', title: 'Task deleted', message: t.title });
   document.dispatchEvent(new CustomEvent('teamos:navigate', { detail: { page: window.TeamOS.currentPage } }));
+}
+
+function deleteTaskFromModal() {
+  if (!isAdmin()) return;
+  const id = document.getElementById('task-modal-id')?.value;
+  const title = document.getElementById('task-title')?.value || 'this task';
+  if (!id) return;
+  /* Reuse the same confirmation modal, but point _drawerTask at this task */
+  const t = DS.tasks.find(x => x.id === id);
+  if (!t) return;
+  window._drawerTask = t;
+
+  let m = document.getElementById('modal-delete-task-overlay');
+  if (!m) {
+    /* Modal may not exist yet if drawer was never opened — build it */
+    deleteTaskFromDrawer();
+    return;
+  }
+  document.getElementById('delete-task-name').textContent = `"${t.title}"`;
+  /* Override confirm to also close the edit modal */
+  const confirmBtn = m.querySelector('button[onclick="_confirmDeleteTask()"]');
+  if (confirmBtn) confirmBtn.onclick = () => {
+    closeModal('modal-task-overlay');
+    _confirmDeleteTask();
+  };
+  openModal('modal-delete-task-overlay');
 }
 
 function duplicateTask(id) {
