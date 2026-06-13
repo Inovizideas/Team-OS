@@ -7644,18 +7644,12 @@ function filterTasks() {
 function _tasksListHTML(tasks) {
   if (!tasks.length) return `<div class="card"><div class="empty-state"><div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><h3>No tasks match your filters</h3></div></div>`;
 
-  const _allIds = tasks.map(t => t.id);
   return `
-    ${_bulkBarHtml(_allIds)}
     <div class="table-wrapper">
       <table>
         <thead>
           <tr>
-            <th style="width:36px;">
-              <div class="my-task-check${_allIds.every(id=>_bulkSel.has(id))&&_allIds.length?' selected':''}" data-bulk="all" onclick="_bulkSelectAll([${_allIds.map(id=>`'${id}'`).join(',')}])" title="Select all">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </div>
-            </th>
+            <th style="width:36px;color:var(--text-muted);font-size:var(--text-xs);">#</th>
             <th>Title</th>
             <th>Status</th>
             <th>Priority</th>
@@ -7667,12 +7661,10 @@ function _tasksListHTML(tasks) {
         </thead>
         <tbody>
           ${tasks.map((t,i) => `
-            <tr data-bulk-row="${t.id}" class="${_bulkSel.has(t.id)?'bulk-selected':''}">
+            <tr>
               <td>
                 <div style="display:flex;flex-direction:column;gap:1px;align-items:center;">
-                  <div class="my-task-check${_bulkSel.has(t.id)?' selected':''}" data-bulk="${t.id}" onclick="_bulkToggleSelect('${t.id}')" title="Select task">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  </div>
+                  <span style="font-size:var(--text-xs);color:var(--text-muted);font-weight:600;min-width:20px;text-align:center;">${i+1}</span>
                   ${isAdmin() ? `<button onclick="reorderTask('${t.id}',-1)" title="Move up" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;line-height:1;font-size:10px;" ${i===0?'disabled':''}>▲</button>
                   <button onclick="reorderTask('${t.id}',1)" title="Move down" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;line-height:1;font-size:10px;" ${i===tasks.length-1?'disabled':''}>▼</button>` : ''}
                 </div>
@@ -7905,13 +7897,10 @@ function renderMyTasksPage() {
       </div>
     </div>
 
-    ${_bulkBarHtml(myTasks.map(t=>t.id))}
     <div style="display:flex;flex-direction:column;gap:var(--space-sm);" id="my-tasks-list">
       ${myTasks.length ? myTasks.map((t, i) => `
-        <div class="my-task-row${_bulkSel.has(t.id)?' bulk-selected':''}" id="mtr-${t.id}" data-bulk-row="${t.id}">
-          <div class="my-task-check${_bulkSel.has(t.id)?' selected':''}" data-bulk="${t.id}" onclick="_bulkToggleSelect('${t.id}')" title="Select task">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
+        <div class="my-task-row" id="mtr-${t.id}">
+          <span style="font-size:var(--text-xs);color:var(--text-muted);font-weight:600;min-width:20px;text-align:center;flex-shrink:0;">${i+1}</span>
           <div style="flex:1;min-width:0;">
             <div class="my-task-title${t.status==='Done'?' done':''}">${escHtml(t.title)}</div>
             <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;">${t.brand||''}${t.project?` · ${DS.projects.find(p=>p.id===t.project)?.name||''}`:''}
@@ -12572,24 +12561,17 @@ function renderMiscTasksPage() {
       </div>
     </div>
     ${tasks.length ? `
-    ${_bulkBarHtml(tasks.map(t=>t.id))}
     <div class="table-wrapper">
       <table>
         <thead><tr>
-          <th style="width:36px;">
-            <div class="my-task-check${tasks.every(t=>_bulkSel.has(t.id))&&tasks.length?' selected':''}" data-bulk="all" onclick="_bulkSelectAll([${tasks.map(t=>`'${t.id}'`).join(',')}])" title="Select all">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-          </th>
+          <th style="width:36px;color:var(--text-muted);font-size:var(--text-xs);">#</th>
           <th>Task</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Due</th><th></th>
         </tr></thead>
         <tbody>
-          ${tasks.map((t,i) => `<tr data-bulk-row="${t.id}" class="${_bulkSel.has(t.id)?'bulk-selected':''}">
+          ${tasks.map((t,i) => `<tr>
             <td>
               <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-                <div class="my-task-check${_bulkSel.has(t.id)?' selected':''}" data-bulk="${t.id}" onclick="_bulkToggleSelect('${t.id}')" title="Select task">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
+                <span style="font-size:var(--text-xs);color:var(--text-muted);font-weight:600;">${i+1}</span>
                 ${admin?`<button onclick="reorderTask('${t.id}',-1)" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:10px;padding:0;" ${i===0?'disabled':''}>▲</button>
                 <button onclick="reorderTask('${t.id}',1)" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:10px;padding:0;" ${i===tasks.length-1?'disabled':''}>▼</button>`:''}
               </div>
