@@ -906,6 +906,22 @@
     .badge-warning   { background: rgba(245,158,11,0.12); color: #D97706; border-color: rgba(245,158,11,0.20); }
     .badge-danger    { background: rgba(239,68,68,0.12);  color: #EF4444; border-color: rgba(239,68,68,0.20); }
     .badge-neutral   { background: var(--bg-elevated);    color: var(--text-secondary); border-color: var(--border-default); }
+    .badge-changes   { background: rgba(234,88,12,0.12);  color: #EA580C; border-color: rgba(234,88,12,0.28); font-weight: 700; }
+
+    /* Approval panel in task drawer */
+    .approval-panel { background: var(--bg-elevated); border: 1.5px solid var(--border-default); border-radius: var(--radius-lg); padding: 16px; margin-top: 4px; }
+    .approval-panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 10px; }
+    .approval-step-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--radius-full); border: 1.5px solid var(--border-default); font-size: 12px; font-weight: 600; background: var(--bg-surface); color: var(--text-secondary); }
+    .approval-step-chip.active { border-color: var(--brand-primary); color: var(--brand-primary); background: rgba(240,180,41,0.08); }
+    .approval-step-chip.done   { border-color: var(--brand-success); color: var(--brand-success); background: rgba(16,185,129,0.08); }
+    .approval-history-item { font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--border-default); color: var(--text-secondary); }
+    .approval-history-item:last-child { border-bottom: none; }
+    /* Approver chips in task modal */
+    .approver-chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; min-height: 32px; }
+    .approver-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 6px; border-radius: var(--radius-full); background: rgba(240,180,41,0.10); border: 1.5px solid rgba(240,180,41,0.30); font-size: 12px; font-weight: 600; color: var(--text-primary); cursor: default; }
+    .approver-chip-num { width: 18px; height: 18px; border-radius: 50%; background: var(--brand-primary); color: #000; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; flex-shrink: 0; }
+    .approver-chip-remove { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0; line-height: 1; font-size: 14px; transition: color .15s; }
+    .approver-chip-remove:hover { color: var(--brand-danger); }
     .badge-purple    { background: rgba(124,58,237,0.12); color: #7C3AED; border-color: rgba(124,58,237,0.20); }
 
     /* Form Controls */
@@ -3530,6 +3546,7 @@
             <option value="In Review">In Review</option>
             <option value="Done">Done</option>
             <option value="Blocked">Blocked</option>
+            <option value="Changes Requested">Changes Requested</option>
             <option value="Cancelled">Cancelled</option>
           </select>
         </div>
@@ -3636,6 +3653,28 @@
         <div class="modal-section-title">Assignees</div>
         <div class="assignee-grid" id="task-assignee-grid">
           <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Approval / Handover -->
+      <div class="modal-section">
+        <div class="modal-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Approval &amp; Handover</span>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:500;color:var(--text-secondary);">
+            <input type="checkbox" id="task-no-approval" onchange="_onNoApprovalChange()" style="accent-color:var(--brand-primary);" />
+            No approval needed
+          </label>
+        </div>
+        <div id="task-approval-body">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Add approvers in order. When a member marks this task done, it routes to the first approver. Each approver can approve (passes to next) or request changes (sends back).</div>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+            <select class="form-select" id="task-approver-select" style="flex:1;">
+              <option value="">— Add an approver —</option>
+            </select>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="_addApproverChip()">Add</button>
+          </div>
+          <div class="approver-chip-list" id="task-approver-chips"></div>
+          <input type="hidden" id="task-approvers-data" value="[]" />
         </div>
       </div>
 
@@ -4393,8 +4432,9 @@
     { value: 'In Progress', color: '#3B82F6', label: 'In Progress' },
     { value: 'In Review',   color: '#F59E0B', label: 'In Review' },
     { value: 'Done',        color: '#10B981', label: 'Done' },
-    { value: 'Blocked',     color: '#EF4444', label: 'Blocked' },
-    { value: 'Cancelled',   color: '#6B7280', label: 'Cancelled' },
+    { value: 'Blocked',            color: '#EF4444', label: 'Blocked' },
+    { value: 'Changes Requested',  color: '#EA580C', label: 'Changes Requested' },
+    { value: 'Cancelled',          color: '#6B7280', label: 'Cancelled' },
   ];
 
   /* In-memory store (Part 3 will sync to GAS) */
@@ -4606,6 +4646,19 @@
     const _wUid = window.TeamOS?.currentUser?.initials || '';
     document.getElementById('task-watch-toggle').checked = (taskData?.watchers || []).includes(_wUid);
 
+    /* Approvers */
+    const _savedApprovers = taskData?.approvers || [];
+    document.getElementById('task-approvers-data').value = JSON.stringify(_savedApprovers);
+    document.getElementById('task-no-approval').checked  = taskData?.noApprovalNeeded === true;
+    /* Populate the approver select with all team members */
+    const _appSel = document.getElementById('task-approver-select');
+    if (_appSel) {
+      _appSel.innerHTML = `<option value="">— Add an approver —</option>` +
+        TEAM_MEMBERS.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+    }
+    _renderApproverChips();
+    _onNoApprovalChange();
+
     // Priority pills
     selectPriority(
       document.querySelector(`#task-priority-pills [data-p="${taskData?.priority || 'Medium'}"]`)
@@ -4661,6 +4714,59 @@
 
   function toggleAssigneeChip(checkbox) {
     checkbox.closest('.assignee-chip').classList.toggle('selected', checkbox.checked);
+  }
+
+  /* ── Approver chips in Task Modal ─────────────────────────────────── */
+  function _getApprovers() {
+    try { return JSON.parse(document.getElementById('task-approvers-data').value || '[]'); } catch(e) { return []; }
+  }
+  function _setApprovers(arr) {
+    document.getElementById('task-approvers-data').value = JSON.stringify(arr);
+  }
+  function _renderApproverChips() {
+    const approvers = _getApprovers();
+    const el = document.getElementById('task-approver-chips');
+    if (!el) return;
+    if (!approvers.length) {
+      el.innerHTML = `<span style="font-size:12px;color:var(--text-muted);font-style:italic;">No approvers added yet</span>`;
+      return;
+    }
+    el.innerHTML = approvers.map((id, i) => {
+      const m = TEAM_MEMBERS.find(x => x.id === id);
+      if (!m) return '';
+      return `<div class="approver-chip">
+        <div class="approver-chip-num">${i + 1}</div>
+        <div style="width:20px;height:20px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;">${m.initials}</div>
+        <span>${m.name.split(' ')[0]}</span>
+        <button type="button" class="approver-chip-remove" onclick="_removeApprover(${i})" title="Remove">×</button>
+      </div>`;
+    }).join('');
+  }
+  function _addApproverChip() {
+    const sel = document.getElementById('task-approver-select');
+    const id = sel?.value;
+    if (!id) return;
+    const arr = _getApprovers();
+    if (arr.includes(id)) { showToast({ type:'warning', title:'Already added', message:'This person is already in the approver chain.' }); return; }
+    arr.push(id);
+    _setApprovers(arr);
+    sel.value = '';
+    _renderApproverChips();
+    /* auto-uncheck "no approval" if user adds someone */
+    document.getElementById('task-no-approval').checked = false;
+    _onNoApprovalChange();
+  }
+  function _removeApprover(idx) {
+    const arr = _getApprovers();
+    arr.splice(idx, 1);
+    _setApprovers(arr);
+    _renderApproverChips();
+  }
+  function _onNoApprovalChange() {
+    const noApproval = document.getElementById('task-no-approval').checked;
+    const body = document.getElementById('task-approval-body');
+    if (body) body.style.opacity = noApproval ? '0.4' : '1';
+    if (body) body.style.pointerEvents = noApproval ? 'none' : '';
   }
 
   /* ── Inline Steps (subtasks) in Edit Task Modal ───────────────────── */
@@ -4939,11 +5045,21 @@
       assignees:   getSelectedAssignees(),
       dependsOn:   [..._depTagsBuffer],
       attachments: cleanAttachments,
-      notes:       document.getElementById('task-notes').value.trim(),
-      driveLink:   document.getElementById('task-drive-link').value.trim(),
-      subtasks:    [..._subtasksBuffer],
-      updatedAt:   new Date().toISOString(),
+      notes:            document.getElementById('task-notes').value.trim(),
+      driveLink:        document.getElementById('task-drive-link').value.trim(),
+      subtasks:         [..._subtasksBuffer],
+      updatedAt:        new Date().toISOString(),
+      noApprovalNeeded: document.getElementById('task-no-approval').checked,
+      approvers:        _getApprovers(),
     };
+    /* Preserve approval runtime state from existing task */
+    const _existingForApproval = DS.tasks.find(x => x.id === payload.id);
+    payload.approvalStep    = _existingForApproval?.approvalStep    ?? 0;
+    payload.approvalHistory = _existingForApproval?.approvalHistory ?? [];
+    /* Reset approvalStep to 0 if approvers list changed */
+    if (JSON.stringify(payload.approvers) !== JSON.stringify(_existingForApproval?.approvers || [])) {
+      payload.approvalStep = 0;
+    }
     /* Handle watch toggle — merge with existing watchers */
     const _saveWUid = window.TeamOS?.currentUser?.initials || '';
     if (_saveWUid) {
@@ -5200,6 +5316,11 @@
     }
     const newStatus = sel.dataset.val;
     const doUpdate = () => {
+      if (newStatus === 'Done') {
+        const t = DS.tasks.find(x => x.id === taskId);
+        closeModal('modal-quickstatus-overlay');
+        if (t) { _routeTaskDone(t); return; }
+      }
       document.dispatchEvent(new CustomEvent('teamos:updateStatus', {
         detail: { taskId, status: newStatus, note }
       }));
@@ -6566,7 +6687,13 @@ function renderDashboard() {
   const doneTasks    = scopedTasks.filter(t => t.status==='Done').length;
   const blockedTasks = scopedTasks.filter(t => t.status==='Blocked').length;
   const overdueTasks = scopedTasks.filter(t => t.due && t.due<_today() && t.status!=='Done' && t.status!=='Cancelled').length;
-  const openTasks    = scopedTasks.filter(t => t.status!=='Done' && t.status!=='Cancelled').length;
+  const openTasks    = scopedTasks.filter(t => t.status!=='Done' && t.status!=='Cancelled' && t.status!=='Changes Requested').length;
+  /* Tasks awaiting MY action (in my approval queue) */
+  const myApprovalQueue = DS.tasks.filter(t => {
+    const approvers = t.approvers || [];
+    const step = t.approvalStep ?? 0;
+    return approvers[step] === uid && (t.status === 'In Review' || t.status === 'Changes Requested');
+  });
   const activeProjs  = admin
     ? DS.projects.filter(p=>p.status==='Active').length
     : DS.projects.filter(p=>p.status==='Active' && (p.members||[]).includes(uid)).length;
@@ -6764,6 +6891,43 @@ function renderDashboard() {
       ${_statCard('Overdue', overdueTasks, '#F59E0B', `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`, 'rgba(245,158,11,0.10)')}
       ${_statCard(admin ? 'Active Projects' : 'My Projects', activeProjs, '#7C3AED', `<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>`, 'rgba(124,58,237,0.10)')}
     </div>
+
+    <!-- Needs Your Action (approval queue) -->
+    ${(() => {
+      const pending = DS.tasks.filter(t => {
+        const approvers = t.approvers || [];
+        const step = t.approvalStep ?? 0;
+        return approvers[step] === uid && (t.status === 'In Review' || t.status === 'Changes Requested');
+      });
+      if (!pending.length) return '';
+      return `
+      <div style="margin-bottom:var(--space-xl);">
+        <div class="section-header">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span style="color:#EA580C;">Needs Your Action</span>
+            <span class="badge badge-changes" style="margin-left:6px;">${pending.length}</span>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          ${pending.map(t => {
+            const assignee = TEAM_MEMBERS.find(m => (t.assignees||[]).includes(m.id) || m.id === t.owner);
+            return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border-default);cursor:pointer;" onclick="openTaskDrawer('${t.id}')">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(t.title)}</div>
+                <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;">${t.brand||''}${t.due?' · Due '+t.due:''}</div>
+              </div>
+              ${_statusBadge(t.status)}
+              ${assignee ? `<div style="width:26px;height:26px;border-radius:50%;background:${assignee.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0;" title="${assignee.name}">${assignee.initials}</div>` : ''}
+              <div style="display:flex;gap:6px;flex-shrink:0;">
+                <button class="btn btn-success btn-sm" style="padding:4px 10px;font-size:11px;" onclick="event.stopPropagation();approveTask('${t.id}')">Approve</button>
+                <button class="btn btn-sm" style="background:rgba(234,88,12,0.10);color:#EA580C;border:1.5px solid rgba(234,88,12,0.25);padding:4px 10px;font-size:11px;border-radius:var(--radius-md);cursor:pointer;font-weight:600;" onclick="event.stopPropagation();openRequestChangesModal('${t.id}')">Request Changes</button>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    })()}
 
     <!-- Announcements (all roles see, only admin can add/delete) -->
     ${annHtml}
@@ -7459,10 +7623,11 @@ function _tasksListHTML(tasks) {
 function _tasksBoardHTML(tasks) {
   const cols = [
     { status:'Blocked',     dot:'#EF4444', id:'bk-blocked', match: s => s === 'Blocked' },
-    { status:'To Do',       dot:'#94A3B8', id:'bk-todo',    match: s => s === 'To Do' || s === 'Not Started' || !s },
-    { status:'In Progress', dot:'#3B82F6', id:'bk-prog',    match: s => s === 'In Progress' },
-    { status:'In Review',   dot:'#F59E0B', id:'bk-review',  match: s => s === 'In Review' },
-    { status:'Done',        dot:'#10B981', id:'bk-done',    match: s => s === 'Done' },
+    { status:'To Do',              dot:'#94A3B8', id:'bk-todo',    match: s => s === 'To Do' || s === 'Not Started' || !s },
+    { status:'In Progress',        dot:'#3B82F6', id:'bk-prog',    match: s => s === 'In Progress' },
+    { status:'In Review',          dot:'#F59E0B', id:'bk-review',  match: s => s === 'In Review' },
+    { status:'Changes Requested',  dot:'#EA580C', id:'bk-changes', match: s => s === 'Changes Requested' },
+    { status:'Done',               dot:'#10B981', id:'bk-done',    match: s => s === 'Done' },
   ];
 
   return `
@@ -9664,13 +9829,192 @@ function toggleTaskDone(id) {
   if (!t) return;
   const next = t.status === 'Done' ? 'To Do' : 'Done';
   if (next === 'Done') {
-    _guardDoneWithOpenSubtasks(id, () => {
-      t.status = 'Done';
-      document.dispatchEvent(new CustomEvent('teamos:updateStatus', { detail: { taskId: id, status: 'Done' } }));
-    });
+    _guardDoneWithOpenSubtasks(id, () => { _routeTaskDone(t); });
   } else {
     t.status = 'To Do';
     document.dispatchEvent(new CustomEvent('teamos:updateStatus', { detail: { taskId: id, status: 'To Do' } }));
+  }
+}
+
+/* Central routing: when a member marks Done, check approval chain */
+function _routeTaskDone(t) {
+  const approvers = t.approvers || [];
+  if (!approvers.length || t.noApprovalNeeded) {
+    /* No approval needed — straight to Done */
+    document.dispatchEvent(new CustomEvent('teamos:updateStatus', { detail: { taskId: t.id, status: 'Done' } }));
+    return;
+  }
+  /* Route to "In Review" and notify first approver */
+  t.approvalStep = 0;
+  t.status = 'In Review';
+  _saveLocal();
+  const who = window.TeamOS.currentUser?.name || 'Someone';
+  const approverId = approvers[0];
+  const approverMember = TEAM_MEMBERS.find(m => m.id === approverId);
+  showToast({ type: 'info', title: 'Sent for approval', message: `Handed over to ${approverMember?.name || approverId} for review.` });
+  _notifyApprover(t, approverId, who);
+  /* Re-render current page */
+  const p = window.TeamOS.currentPage;
+  if (p === 'dashboard') renderDashboard();
+  else if (p === 'tasks') { if (document.getElementById('tasks-search')) filterTasks(); else renderTasksPage(); }
+  else if (p === 'kanban') renderKanbanPage();
+  else if (p === 'mytasks') renderMyTasksPage();
+  else if (p === 'misctasks') renderMiscTasksPage && renderMiscTasksPage();
+  else if (p === 'recurring') renderRecurringPage && renderRecurringPage();
+  if (window._drawerTaskId === t.id) openTaskDrawer(t.id);
+}
+
+/* ── Approval actions ─────────────────────────────────────────────────── */
+function approveTask(taskId) {
+  const t = DS.tasks.find(x => x.id === taskId);
+  if (!t) return;
+  const uid    = window.TeamOS.currentUser?.initials || '';
+  const who    = window.TeamOS.currentUser?.name || 'Someone';
+  const step   = t.approvalStep ?? 0;
+  const approvers = t.approvers || [];
+
+  /* Record in history */
+  if (!t.approvalHistory) t.approvalHistory = [];
+  t.approvalHistory.push({ by: uid, action: 'approved', note: '', at: new Date().toLocaleString('en-IN') });
+
+  if (step < approvers.length - 1) {
+    /* More approvers in chain — hand over to next */
+    t.approvalStep = step + 1;
+    t.status = 'In Review';
+    const nextId = approvers[step + 1];
+    const nextMember = TEAM_MEMBERS.find(m => m.id === nextId);
+    _saveLocal();
+    _notifyApprover(t, nextId, who);
+    showToast({ type: 'success', title: 'Approved & handed over', message: `Passed to ${nextMember?.name || nextId} for next review.` });
+  } else {
+    /* Last approver — mark Done */
+    const isRecurring = t.recurrence && t.recurrence !== 'None';
+    if (isRecurring) {
+      /* Reset for next cycle */
+      t.approvalStep = 0;
+      t.status = 'To Do';
+      _saveLocal();
+      showToast({ type: 'success', title: 'Approved! Recurring task reset', message: `${t.title} is reset for the next cycle.` });
+    } else {
+      t.approvalStep = 0;
+      t.status = 'Done';
+      _saveLocal();
+      showToast({ type: 'success', title: 'Approved & Done!', message: t.title });
+    }
+    /* Notify assignees/owner it's done */
+    _notifyDoneAfterApproval(t, who);
+  }
+  _pushActivity(`<strong>${who}</strong> approved <strong>${escHtml(t.title)}</strong>`, TEAM_MEMBERS.find(m=>m.id===uid)?.color||'#10B981');
+  const p = window.TeamOS.currentPage;
+  if (p === 'dashboard') renderDashboard();
+  else if (p === 'tasks') { if (document.getElementById('tasks-search')) filterTasks(); else renderTasksPage(); }
+  else if (p === 'kanban') renderKanbanPage();
+  else if (p === 'mytasks') renderMyTasksPage();
+  else if (p === 'misctasks') renderMiscTasksPage && renderMiscTasksPage();
+  else if (p === 'recurring') renderRecurringPage && renderRecurringPage();
+  if (window._drawerTaskId === taskId) openTaskDrawer(taskId);
+}
+
+function openRequestChangesModal(taskId) {
+  const t = DS.tasks.find(x => x.id === taskId);
+  if (!t) return;
+  /* Build a small inline modal */
+  let m = document.getElementById('modal-req-changes-overlay');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'modal-req-changes-overlay';
+    m.className = 'modal-overlay';
+    m.innerHTML = `<div class="modal" style="max-width:420px;" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="modal-title">Request Changes</h3>
+        <button class="modal-close" onclick="closeModal('modal-req-changes-overlay')" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="req-changes-task-id" />
+        <div class="form-group">
+          <label class="form-label">Task</label>
+          <div id="req-changes-task-title" style="font-weight:600;font-size:var(--text-sm);color:var(--text-primary);padding:8px 12px;background:var(--bg-elevated);border-radius:var(--radius-md);border:1px solid var(--border-default);"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="req-changes-note">What needs to be changed? <span style="color:var(--brand-danger)">*</span></label>
+          <textarea class="form-textarea" id="req-changes-note" rows="3" placeholder="Describe what needs to be fixed or revised…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('modal-req-changes-overlay')">Cancel</button>
+        <button class="btn btn-sm" style="background:rgba(234,88,12,0.12);color:#EA580C;border:1.5px solid rgba(234,88,12,0.28);padding:8px 16px;border-radius:var(--radius-md);font-weight:600;cursor:pointer;" onclick="submitRequestChanges()">Send Back</button>
+      </div>
+    </div>`;
+    document.body.appendChild(m);
+  }
+  document.getElementById('req-changes-task-id').value = taskId;
+  document.getElementById('req-changes-task-title').textContent = t.title;
+  document.getElementById('req-changes-note').value = '';
+  openModal('modal-req-changes-overlay');
+  setTimeout(() => document.getElementById('req-changes-note')?.focus(), 120);
+}
+
+function submitRequestChanges() {
+  const taskId = document.getElementById('req-changes-task-id').value;
+  const note   = document.getElementById('req-changes-note').value.trim();
+  if (!note) { showToast({ type: 'warning', title: 'Add a note', message: 'Explain what needs to change so the team knows what to fix.' }); return; }
+  const t   = DS.tasks.find(x => x.id === taskId);
+  if (!t) return;
+  const uid = window.TeamOS.currentUser?.initials || '';
+  const who = window.TeamOS.currentUser?.name || 'Someone';
+
+  if (!t.approvalHistory) t.approvalHistory = [];
+  t.approvalHistory.push({ by: uid, action: 'changes_requested', note, at: new Date().toLocaleString('en-IN') });
+  t.status = 'Changes Requested';
+  _saveLocal();
+
+  /* Notify assignees and owner */
+  if (_inGAS()) {
+    const sb = _getSB();
+    const ts = new Date().toISOString();
+    const targets = [...new Set([...(t.assignees||[]), t.owner].filter(Boolean))];
+    targets.forEach(aid => {
+      if (aid === uid) return;
+      const nid = 'n_chg_' + t.id + '_' + aid + '_' + Date.now();
+      sb.from('notifications').insert({ id: nid, user_name: aid, type: 'changes_requested', message: `${who} requested changes on: ${t.title} — ${note}`, task_id: t.id, read: 'unread', created_at: ts }).then(()=>{});
+    });
+  }
+  pushNotif('↩', `${who} requested changes on: ${t.title}`);
+  _pushActivity(`<strong>${who}</strong> requested changes on <strong>${escHtml(t.title)}</strong>`, '#EA580C');
+  closeModal('modal-req-changes-overlay');
+  showToast({ type: 'warning', title: 'Changes requested', message: `Sent back to the team with your note.` });
+
+  const p = window.TeamOS.currentPage;
+  if (p === 'dashboard') renderDashboard();
+  else if (p === 'tasks') { if (document.getElementById('tasks-search')) filterTasks(); else renderTasksPage(); }
+  else if (p === 'kanban') renderKanbanPage();
+  else if (p === 'mytasks') renderMyTasksPage();
+  if (window._drawerTaskId === taskId) openTaskDrawer(taskId);
+}
+
+function _notifyApprover(t, approverId, senderName) {
+  pushNotif('👁', `${senderName} handed over for your review: ${t.title}`, t.id);
+  if (_inGAS()) {
+    const sb = _getSB();
+    const ts = new Date().toISOString();
+    const nid = 'n_handover_' + t.id + '_' + approverId + '_' + Date.now();
+    sb.from('notifications').insert({ id: nid, user_name: approverId, type: 'handover', message: `${senderName} handed over for your approval: ${t.title}`, task_id: t.id, read: 'unread', created_at: ts }).then(()=>{});
+  }
+}
+
+function _notifyDoneAfterApproval(t, approverName) {
+  const targets = [...new Set([...(t.assignees||[]), t.owner].filter(Boolean))];
+  const uid = window.TeamOS.currentUser?.initials || '';
+  if (_inGAS()) {
+    const sb = _getSB();
+    const ts = new Date().toISOString();
+    targets.forEach(aid => {
+      if (aid === uid) return;
+      const nid = 'n_approved_done_' + t.id + '_' + aid + '_' + Date.now();
+      sb.from('notifications').insert({ id: nid, user_name: aid, type: 'approved', message: `${approverName} approved and marked done: ${t.title}`, task_id: t.id, read: 'unread', created_at: ts }).then(()=>{});
+    });
   }
 }
 
@@ -9680,12 +10024,13 @@ function _today() {
 
 function _statusBadge(s) {
   const map = {
-    'To Do':       'badge-neutral',
-    'In Progress': 'badge-primary',
-    'In Review':   'badge-warning',
-    'Done':        'badge-success',
-    'Blocked':     'badge-danger',
-    'Cancelled':   'badge-neutral',
+    'To Do':              'badge-neutral',
+    'In Progress':        'badge-primary',
+    'In Review':          'badge-warning',
+    'Done':               'badge-success',
+    'Blocked':            'badge-danger',
+    'Changes Requested':  'badge-changes',
+    'Cancelled':          'badge-neutral',
   };
   return `<span class="badge ${map[s]||'badge-neutral'}">${s||''}</span>`;
 }
@@ -11140,6 +11485,62 @@ function openTaskDrawer(id) {
       <div style="font-size:var(--text-sm);color:var(--text-secondary);background:var(--bg-elevated);padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--border-default);line-height:1.6;">${escHtml(t.notes)}</div>
     </div>` : ''}
 
+    <!-- Approval chain -->
+    ${(() => {
+      const approvers = t.approvers || [];
+      if (!approvers.length) return '';
+      const uid = window.TeamOS.currentUser?.initials || '';
+      const step = t.approvalStep ?? 0;
+      const isActiveApprover = approvers[step] === uid && (t.status === 'In Review' || t.status === 'Changes Requested');
+      const history = t.approvalHistory || [];
+      return `
+      <div>
+        <div class="drawer-section-title">Approval Chain</div>
+        <div class="approval-panel">
+          <div class="approval-panel-title">Approvers (in order)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            ${approvers.map((aid, i) => {
+              const am = TEAM_MEMBERS.find(x => x.id === aid);
+              const isDone = i < step || t.status === 'Done';
+              const isActive = i === step && (t.status === 'In Review' || t.status === 'Changes Requested');
+              return `<div class="approval-step-chip ${isDone ? 'done' : isActive ? 'active' : ''}">
+                <div style="width:18px;height:18px;border-radius:50%;background:${am?.color||'#6B7280'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white;flex-shrink:0;">${am?.initials||aid}</div>
+                <span>${am?.name?.split(' ')[0] || aid}</span>
+                ${isDone ? '<span style="font-size:10px;"> ✓</span>' : isActive ? '<span style="font-size:10px;"> ●</span>' : ''}
+              </div>`;
+            }).join('<span style="color:var(--text-muted);font-size:14px;align-self:center;">→</span>')}
+          </div>
+          ${isActiveApprover ? `
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:${history.length ? '12px' : '0'};">
+            <button class="btn btn-success btn-sm" onclick="approveTask('${t.id}')">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Approve${step < approvers.length - 1 ? ' & Hand Over' : ' & Mark Done'}
+            </button>
+            <button class="btn btn-sm" style="background:rgba(234,88,12,0.12);color:#EA580C;border:1.5px solid rgba(234,88,12,0.28);" onclick="openRequestChangesModal('${t.id}')">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M3 6h18M3 18h12"/></svg>
+              Request Changes
+            </button>
+          </div>` : (t.status === 'In Review' || t.status === 'Changes Requested') && !isActiveApprover && approvers[step] ? `
+          <div style="font-size:12px;color:var(--text-muted);font-style:italic;">
+            Waiting for ${TEAM_MEMBERS.find(x=>x.id===approvers[step])?.name || approvers[step]} to review.
+          </div>` : ''}
+          ${history.length ? `
+          <div style="margin-top:10px;">
+            <div class="approval-panel-title" style="margin-bottom:6px;">History</div>
+            ${history.slice().reverse().map(h => `
+              <div class="approval-history-item">
+                <strong>${TEAM_MEMBERS.find(x=>x.id===h.by)?.name||h.by||'Someone'}</strong>
+                <span style="color:${h.action==='approved'?'var(--brand-success)':'#EA580C'};">
+                  ${h.action === 'approved' ? ' ✓ Approved' : ' ↩ Requested changes'}
+                </span>
+                ${h.note ? `— <em>${escHtml(h.note)}</em>` : ''}
+                <span style="color:var(--text-muted);font-size:11px;margin-left:4px;">${h.at||''}</span>
+              </div>`).join('')}
+          </div>` : ''}
+        </div>
+      </div>`;
+    })()}
+
     <!-- Comments -->
     <div>
       <div class="drawer-section-title">Comments</div>
@@ -11423,9 +11824,9 @@ function _onDrop(e) {
 
   const statusMap = {
     todo:'To Do', inprogress:'In Progress', review:'In Review',
-    done:'Done',  blocked:'Blocked',
+    done:'Done',  blocked:'Blocked', changes:'Changes Requested',
     'bk-todo':'To Do','bk-prog':'In Progress','bk-review':'In Review',
-    'bk-done':'Done','bk-blocked':'Blocked',
+    'bk-done':'Done','bk-blocked':'Blocked','bk-changes':'Changes Requested',
   };
   const resolved = statusMap[newStatus] || newStatus;
 
