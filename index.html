@@ -3677,6 +3677,21 @@
         <textarea class="form-textarea" id="task-notes" rows="2" placeholder="Visible only to assigned team members"></textarea>
       </div>
 
+      <!-- Drive Link -->
+      <div class="form-group">
+        <label class="form-label" for="task-drive-link">Drive Link <span style="color:var(--text-muted);font-weight:400;">(optional — paste a Google Drive file or folder link)</span></label>
+        <input type="url" class="form-input" id="task-drive-link" placeholder="https://drive.google.com/…" />
+      </div>
+
+      <!-- Watch toggle -->
+      <div class="form-group" id="task-watch-row" style="display:flex;align-items:center;gap:10px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+          <input type="checkbox" id="task-watch-toggle" style="width:16px;height:16px;accent-color:var(--brand-primary);cursor:pointer;" />
+          <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);">👁 Watch this task</span>
+        </label>
+        <span style="font-size:var(--text-xs);color:var(--text-muted);">You'll get notified of updates</span>
+      </div>
+
       <!-- Inline Steps / Subtasks section -->
       <div class="modal-section">
         <div class="modal-section-title" style="display:flex;justify-content:space-between;align-items:center;">
@@ -4586,6 +4601,10 @@
     _restoreCustomRecurrenceDays(_recurVal);     /* re-tick saved days */
     document.getElementById('task-due-time').value    = taskData?.dueTime      || '';
     document.getElementById('task-notes').value       = taskData?.notes        || '';
+    document.getElementById('task-drive-link').value  = taskData?.driveLink    || '';
+    /* Watch toggle: checked if current user is already a watcher */
+    const _wUid = window.TeamOS?.currentUser?.initials || '';
+    document.getElementById('task-watch-toggle').checked = (taskData?.watchers || []).includes(_wUid);
 
     // Priority pills
     selectPriority(
@@ -4921,9 +4940,24 @@
       dependsOn:   [..._depTagsBuffer],
       attachments: cleanAttachments,
       notes:       document.getElementById('task-notes').value.trim(),
+      driveLink:   document.getElementById('task-drive-link').value.trim(),
       subtasks:    [..._subtasksBuffer],
       updatedAt:   new Date().toISOString(),
     };
+    /* Handle watch toggle — merge with existing watchers */
+    const _saveWUid = window.TeamOS?.currentUser?.initials || '';
+    if (_saveWUid) {
+      const existingTask = DS.tasks.find(x => x.id === payload.id);
+      const existingWatchers = existingTask?.watchers || [];
+      const wantWatch = document.getElementById('task-watch-toggle').checked;
+      if (wantWatch && !existingWatchers.includes(_saveWUid)) {
+        payload.watchers = [...existingWatchers, _saveWUid];
+      } else if (!wantWatch && existingWatchers.includes(_saveWUid)) {
+        payload.watchers = existingWatchers.filter(id => id !== _saveWUid);
+      } else {
+        payload.watchers = existingWatchers;
+      }
+    }
 
     const doSave = () => {
       document.dispatchEvent(new CustomEvent('teamos:saveTask', { detail: payload }));
@@ -7405,6 +7439,9 @@ function _tasksListHTML(tasks) {
                   <button class="action-icon-btn" title="Edit" onclick="openTaskModal(DS.tasks.find(x=>x.id==='${t.id}'))">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </button>
+                  <button class="action-icon-btn" title="${(t.watchers||[]).includes(window.TeamOS?.currentUser?.initials)?'Unwatch':'Watch'}" onclick="toggleWatcher('${t.id}');renderTasksPage&&renderTasksPage();" style="color:${(t.watchers||[]).includes(window.TeamOS?.currentUser?.initials)?'var(--brand-primary)':''};">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
                   <button class="action-icon-btn" title="Comment" onclick="openCommentModal('${t.id}','${escHtml(t.title)}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   </button>
@@ -7627,6 +7664,9 @@ function renderMyTasksPage() {
             </div>
             <button class="action-icon-btn" onclick="openTaskModal(DS.tasks.find(x=>x.id==='${t.id}'))">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="action-icon-btn" title="${(t.watchers||[]).includes(window.TeamOS?.currentUser?.initials)?'Unwatch':'Watch'}" onclick="toggleWatcher('${t.id}');renderMyTasksPage();" style="color:${(t.watchers||[]).includes(window.TeamOS?.currentUser?.initials)?'var(--brand-primary)':''};">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
         </div>`).join('') : `<div class="card"><div class="empty-state"><div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/></svg></div><h3>You're all caught up!</h3><p>No tasks assigned to you right now.</p><button class="btn btn-primary" onclick="openTaskModal()">Add a task</button></div></div>`}
@@ -9271,19 +9311,15 @@ function renderSettingsPage() {
   el.innerHTML = `
     <div class="admin-section">
       <div class="admin-section-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Google Apps Script Connection
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Team Drive Folder
       </div>
-      <div class="form-group">
-        <label class="form-label" for="settings-gas-url">GAS Deployment URL</label>
-        <div style="display:flex;gap:var(--space-sm);">
-          <input type="url" class="form-input" id="settings-gas-url"
-            value="${escHtml(DS.settings.gasUrl)}"
-            placeholder="https://script.google.com/macros/s//exec" />
-          <button class="btn btn-primary" onclick="saveGasUrl()">Save</button>
-          <button class="btn btn-secondary" onclick="testGasConnection()">Test</button>
-        </div>
-      </div>
+      <p style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-md);">Shared Google Drive folder for all IIPL team files — reports, bills, vendor docs, and task attachments.</p>
+      <a href="https://drive.google.com/drive/folders/1pE-A_XsKMmQ3Jd4bc-MnTX7GOsnaEeO4" target="_blank" rel="noopener"
+        class="btn btn-primary" style="display:inline-flex;align-items:center;gap:8px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Open Team Drive
+      </a>
     </div>
     <div class="admin-section">
       <div class="admin-section-title">
@@ -11087,6 +11123,16 @@ function openTaskDrawer(id) {
       </div>
     </div>` : ''}
 
+    <!-- Drive Link -->
+    ${t.driveLink ? `
+    <div>
+      <div class="drawer-section-title">Drive Link</div>
+      <a href="${escHtml(t.driveLink)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);text-decoration:none;color:var(--brand-primary);font-size:var(--text-sm);font-weight:600;max-width:100%;overflow:hidden;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Open in Google Drive</span>
+      </a>
+    </div>` : ''}
+
     <!-- Notes -->
     ${t.notes ? `
     <div>
@@ -11853,6 +11899,7 @@ function renderMiscTasksPage() {
               <div class="task-row-actions">
                 <button class="action-icon-btn" onclick="openTaskDrawer('${t.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
                 <button class="action-icon-btn" onclick="openTaskModal(DS.tasks.find(x=>x.id==='${t.id}'))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                <button class="action-icon-btn" title="${(t.watchers||[]).includes(window.TeamOS?.currentUser?.initials)?'Unwatch':'Watch'}" onclick="toggleWatcher('${t.id}');renderMiscTasksPage();" style="color:${(t.watchers||[]).includes(window.TeamOS?.currentUser?.initials)?'var(--brand-primary)':''};" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
               </div>
             </td>
           </tr>`).join('')}
@@ -11915,6 +11962,7 @@ function renderRecurringPage() {
                 <div class="task-row-actions">
                   <button class="action-icon-btn" title="Open" onclick="openTaskDrawer('${t.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
                   <button class="action-icon-btn" title="Edit" onclick="openTaskModal(DS.tasks.find(x=>x.id==='${t.id}'))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                  <button class="action-icon-btn" title="${(t.watchers||[]).includes(window.TeamOS?.currentUser?.initials)?'Unwatch':'Watch'}" onclick="toggleWatcher('${t.id}');renderRecurringPage();" style="color:${(t.watchers||[]).includes(window.TeamOS?.currentUser?.initials)?'var(--brand-primary)':''};" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                 </div>
               </td>
             </tr>`;
@@ -12114,17 +12162,15 @@ function _adminSettingsHTML() {
   return `
     <div class="admin-section">
       <div class="admin-section-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        GAS Connection
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Team Drive Folder
       </div>
-      <div class="form-group">
-        <label class="form-label" for="admin-gas-url">Deployment URL</label>
-        <div style="display:flex;gap:var(--space-sm);">
-          <input type="url" class="form-input" id="admin-gas-url" value="${escHtml(DS.settings.gasUrl||'')}" placeholder="https://script.google.com/macros/s//exec" />
-          <button class="btn btn-primary" onclick="saveGasUrl();document.getElementById('settings-gas-url').value=document.getElementById('admin-gas-url').value;">Save</button>
-          <button class="btn btn-secondary" onclick="testGasConnection()">Test</button>
-        </div>
-      </div>
+      <p style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-md);">Shared Google Drive folder for all IIPL team files.</p>
+      <a href="https://drive.google.com/drive/folders/1pE-A_XsKMmQ3Jd4bc-MnTX7GOsnaEeO4" target="_blank" rel="noopener"
+        class="btn btn-primary" style="display:inline-flex;align-items:center;gap:8px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Open Team Drive
+      </a>
     </div>
     <div class="admin-section">
       <div class="admin-section-title">Preferences</div>
@@ -12369,28 +12415,7 @@ document.addEventListener('teamos:ready', () => {
 });
 
 
-/*  13. SETTINGS PAGE  sync GAS URL field  */
-/* Extend renderSettingsPage to also set admin-gas-url field */
-const _origRenderSettingsPage = window.renderSettingsPage;
-window.renderSettingsPage = function() {
-  _origRenderSettingsPage?.();
-  /* GAS URL field is already in settings page from Part 3 */
-};
-
-/* Sync GAS URL both directions */
-const _origSaveGasUrl = window.saveGasUrl;
-window.saveGasUrl = function() {
-  /* Try both field IDs */
-  const urlA = document.getElementById('settings-gas-url')?.value.trim();
-  const urlB = document.getElementById('admin-gas-url')?.value.trim();
-  const url  = urlA || urlB;
-  if (!url) return;
-  const DS = window.TeamOS.DS;
-  DS.settings.gasUrl = url;
-  [document.getElementById('settings-gas-url'), document.getElementById('admin-gas-url')]
-    .forEach(el => { if (el) el.value = url; });
-  showToast({ type:'success', title:'GAS URL saved', message:'Sync will use the new endpoint.' });
-};
+/*  13. SETTINGS PAGE  (GAS removed — no sync needed)  */
 
 
 /*  14. KEYBOARD SHORTCUTS  */
