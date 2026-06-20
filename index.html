@@ -6570,6 +6570,7 @@ const DS = {
   projects:    [],
   team:        TEAM_MEMBERS.slice(),   // seeded from Part 2 const
   attendance:  {},
+  travelPlans: {},
   announcements: [],
   activity:    [],
   settings: {
@@ -6596,6 +6597,7 @@ const LS = {
   PROJECTS:      'iipl_projects',
   ATTENDANCE:    'iipl_attendance',
   CHECKINS:      'iipl_checkins',
+  TRAVEL:        'iipl_travel',
   ANNOUNCEMENTS: 'iipl_announcements',
   VENDORS:       'iipl_vendors',
   CAMPAIGNS:     'iipl_campaigns',
@@ -6609,6 +6611,7 @@ function _saveLocal() {
     _lsSet(LS.PROJECTS,      JSON.stringify(DS.projects));
     _lsSet(LS.ATTENDANCE,    JSON.stringify(DS.attendance));
     _lsSet(LS.CHECKINS,      JSON.stringify(DS.checkins || {}));
+    _lsSet(LS.TRAVEL,        JSON.stringify(DS.travelPlans || {}));
     _lsSet(LS.ANNOUNCEMENTS, JSON.stringify(DS.announcements));
     _lsSet(LS.ACTIVITY,      JSON.stringify(DS.activity.slice(0,50)));
     if (window.DS_vendors)   _lsSet(LS.VENDORS,   JSON.stringify(window.DS_vendors));
@@ -6630,6 +6633,9 @@ function _loadLocal() {
 
     const checkins = _lsGet(LS.CHECKINS);
     if (checkins) DS.checkins = JSON.parse(checkins);
+
+    const travel = _lsGet(LS.TRAVEL);
+    if (travel) DS.travelPlans = JSON.parse(travel);
 
     const announcements = _lsGet(LS.ANNOUNCEMENTS);
     if (announcements) DS.announcements = JSON.parse(announcements);
@@ -8222,6 +8228,7 @@ function _renderAttendanceMember(el) {
                 ${cfg
                   ? `<span style="font-size:var(--text-xs);font-weight:600;color:${cfg.color};">${cfg.emoji} ${cfg.label}</span>`
                   : `<span style="font-size:var(--text-xs);color:var(--text-muted);"> Not marked</span>`}
+                ${_travelInfoHtml(m.id)}
               </div>
             </div>
           </div>`;
@@ -8312,6 +8319,7 @@ function _renderAttendanceAdmin(el) {
                   ${cfg
                     ? `<span style="font-size:var(--text-xs);font-weight:700;padding:3px 9px;border-radius:var(--radius-full);background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.color}33;">${cfg.emoji} ${cfg.label}</span>`
                     : `<span style="font-size:var(--text-xs);color:var(--text-muted);"></span>`}
+                  ${_travelInfoHtml(m.id)}
                 </td>
                 <td>
                   <select onchange="adminMarkStatus('${m.id}',this.value);this.value='';"
@@ -8581,6 +8589,7 @@ function _directAdminCheckout() {
 
 function adminMarkStatus(uid, status) {
   if (!status) return;
+  if (status === 'traveling') { _openTravelModal(uid); return; }
   if (!DS.attendance[uid]) DS.attendance[uid]={};
   DS.attendance[uid][_today()] = status;
   document.dispatchEvent(new CustomEvent('teamos:markAttendance',{detail:{uid,date:_today(),status}}));
@@ -8608,6 +8617,7 @@ function toggleAttCell(dateStr, uid) {
 }
 
 function markToday(status) {
+  if (status === 'traveling') { _openTravelModal(window.TeamOS.currentUser?.initials || 'NG'); return; }
   const uid  = window.TeamOS.currentUser?.initials || 'NG';
   const name = window.TeamOS.currentUser?.name || uid;
   if (!DS.attendance[uid]) DS.attendance[uid]={};
@@ -8616,7 +8626,6 @@ function markToday(status) {
   const cfg = ATT_STATUSES[status];
   showToast({ type:'success', title:'Status updated', message: cfg?cfg.label:status });
   _saveLocal();
-  /* Notify admins when a member changes their availability */
   if (window.TeamOS.currentUser?.role !== 'admin' && _inGAS()) {
     const sb = _getSB();
     const adminInitials = ['NG','SV','EA'];
@@ -8627,6 +8636,243 @@ function markToday(status) {
   }
   renderAttendancePage();
   if (window.TeamOS.currentPage==='dashboard') renderDashboard();
+}
+
+/* ── TRAVEL PLAN WORKFLOW ────────────────────────────────────────────────── */
+
+function _openTravelModal(uid) {
+  window._travelUid = uid;
+  let m = document.getElementById('modal-travel-overlay');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'modal-travel-overlay';
+    m.className = 'modal-overlay';
+    m.innerHTML = `<div class="modal" style="max-width:520px;" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="modal-title">✈️ Travel Plan</h3>
+        <button class="modal-close" onclick="closeModal('modal-travel-overlay')" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="travel-modal-body">
+        <!-- Step 1: type picker -->
+        <div id="travel-step-type">
+          <p style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:16px;">What type of travel?</p>
+          <div style="display:flex;gap:12px;">
+            <button onclick="_travelSetType('work')" style="flex:1;padding:20px;background:var(--bg-elevated);border:2px solid var(--border-default);border-radius:var(--radius-lg);cursor:pointer;text-align:center;transition:all 0.15s;"
+              onmouseover="this.style.borderColor='var(--brand-primary)'" onmouseout="this.style.borderColor='var(--border-default)'">
+              <div style="font-size:24px;margin-bottom:6px;">💼</div>
+              <div style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);">Work Travel</div>
+              <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px;">Client visit, conference, office travel</div>
+            </button>
+            <button onclick="_travelSetType('personal')" style="flex:1;padding:20px;background:var(--bg-elevated);border:2px solid var(--border-default);border-radius:var(--radius-lg);cursor:pointer;text-align:center;transition:all 0.15s;"
+              onmouseover="this.style.borderColor='var(--brand-primary)'" onmouseout="this.style.borderColor='var(--border-default)'">
+              <div style="font-size:24px;margin-bottom:6px;">🏖️</div>
+              <div style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);">Personal Travel</div>
+              <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px;">Vacation, family, personal trip</div>
+            </button>
+          </div>
+        </div>
+        <!-- Step 2: form (hidden initially) -->
+        <div id="travel-step-form" style="display:none;"></div>
+      </div>
+    </div>`;
+    document.body.appendChild(m);
+  }
+  document.getElementById('travel-step-type').style.display = '';
+  document.getElementById('travel-step-form').style.display = 'none';
+  openModal('modal-travel-overlay');
+}
+
+function _travelSetType(type) {
+  window._travelType = type;
+  document.getElementById('travel-step-type').style.display = 'none';
+  const form = document.getElementById('travel-step-form');
+  form.style.display = '';
+  const today = _today();
+
+  if (type === 'work') {
+    form.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+        <span style="font-size:18px;">💼</span>
+        <span style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);">Work Travel Details</span>
+        <button onclick="_travelBack()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:var(--text-xs);">← Back</button>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Destination City</label>
+        <input id="travel-destination" type="text" class="form-control" placeholder="e.g. Mumbai, Delhi, Singapore" style="font-size:var(--text-sm);">
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Office / Client Location</label>
+        <input id="travel-office" type="text" class="form-control" placeholder="e.g. Client HQ, Branch Office" style="font-size:var(--text-sm);">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-group">
+          <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Travel Start Date</label>
+          <input id="travel-start" type="date" class="form-control" value="${today}" style="font-size:var(--text-sm);">
+        </div>
+        <div class="form-group">
+          <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Travel End Date</label>
+          <input id="travel-end" type="date" class="form-control" style="font-size:var(--text-sm);">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Purpose of Travel</label>
+        <input id="travel-purpose" type="text" class="form-control" placeholder="e.g. Client meeting, Site inspection" style="font-size:var(--text-sm);">
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Availability During Travel</label>
+        <select id="travel-availability" class="form-control" style="font-size:var(--text-sm);">
+          <option value="fully">Fully Available</option>
+          <option value="partially" selected>Partially Available</option>
+          <option value="limited">Limited Availability</option>
+          <option value="unavailable">Unavailable</option>
+        </select>
+      </div>
+      <button onclick="_submitTravelPlan()" class="btn btn-primary" style="width:100%;padding:10px;font-weight:700;">Submit Travel Plan</button>`;
+  } else {
+    form.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+        <span style="font-size:18px;">🏖️</span>
+        <span style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);">Personal Travel</span>
+        <button onclick="_travelBack()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:var(--text-xs);">← Back</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-group">
+          <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Travel Start Date</label>
+          <input id="travel-start" type="date" class="form-control" value="${today}" style="font-size:var(--text-sm);">
+        </div>
+        <div class="form-group">
+          <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Travel End Date</label>
+          <input id="travel-end" type="date" class="form-control" style="font-size:var(--text-sm);">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Availability</label>
+        <select id="travel-availability" class="form-control" style="font-size:var(--text-sm);">
+          <option value="partially">Partially Available</option>
+          <option value="limited">Limited Availability</option>
+          <option value="unavailable" selected>Unavailable</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Notes <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+        <textarea id="travel-notes" class="form-control" rows="2" placeholder="Any notes for the team…" style="font-size:var(--text-sm);resize:none;"></textarea>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:var(--text-xs);color:var(--text-secondary);margin-bottom:16px;cursor:pointer;">
+        <input type="checkbox" id="travel-private" checked style="accent-color:var(--brand-primary);">
+        Keep destination details private (team only sees dates & availability)
+      </label>
+      <button onclick="_submitTravelPlan()" class="btn btn-primary" style="width:100%;padding:10px;font-weight:700;">Submit Travel Plan</button>`;
+  }
+}
+
+function _travelBack() {
+  document.getElementById('travel-step-type').style.display = '';
+  document.getElementById('travel-step-form').style.display = 'none';
+}
+
+function _submitTravelPlan() {
+  const uid = window._travelUid;
+  const type = window._travelType;
+  const startDate = document.getElementById('travel-start')?.value;
+  const endDate = document.getElementById('travel-end')?.value;
+  const availability = document.getElementById('travel-availability')?.value || 'partially';
+
+  if (!startDate || !endDate) { showToast({ type:'warning', title:'Required', message:'Please fill in start and end dates.' }); return; }
+  if (endDate < startDate) { showToast({ type:'warning', title:'Invalid', message:'End date must be after start date.' }); return; }
+
+  const plan = {
+    id: 'tp_' + Date.now(),
+    uid,
+    type,
+    startDate,
+    endDate,
+    availability,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (type === 'work') {
+    plan.destination = document.getElementById('travel-destination')?.value || '';
+    plan.office = document.getElementById('travel-office')?.value || '';
+    plan.purpose = document.getElementById('travel-purpose')?.value || '';
+  } else {
+    plan.notes = document.getElementById('travel-notes')?.value || '';
+    plan.private = document.getElementById('travel-private')?.checked ?? true;
+  }
+
+  if (!DS.travelPlans[uid]) DS.travelPlans[uid] = [];
+  DS.travelPlans[uid].push(plan);
+
+  if (startDate <= _today()) {
+    if (!DS.attendance[uid]) DS.attendance[uid] = {};
+    DS.attendance[uid][_today()] = 'traveling';
+    document.dispatchEvent(new CustomEvent('teamos:markAttendance', { detail: { uid, date: _today(), status: 'traveling' } }));
+  }
+
+  _saveLocal();
+  closeModal('modal-travel-overlay');
+
+  const name = DS.team.find(m => m.id === uid)?.name || uid;
+  const availLabel = { fully:'Fully Available', partially:'Partially Available', limited:'Limited Availability', unavailable:'Unavailable' }[availability] || availability;
+  const isFuture = startDate > _today();
+
+  showToast({ type:'success', title: isFuture ? 'Travel plan saved' : 'Traveling', message: isFuture ? `${startDate} → ${endDate}` : `${availLabel} · Returns ${endDate}` });
+
+  /* Notify all team members */
+  if (_inGAS()) {
+    const sb = _getSB();
+    const typeLabel = type === 'work' ? '💼 Work Travel' : '🏖️ Personal Travel';
+    const msg = isFuture
+      ? `${name} has upcoming travel: ${typeLabel} from ${startDate} to ${endDate} (${availLabel})`
+      : `${name} is now traveling: ${typeLabel} until ${endDate} (${availLabel})`;
+    DS.team.forEach(member => {
+      if (member.id === uid) return;
+      const notifId = 'n_travel_' + plan.id + '_' + member.id;
+      sb.from('notifications').upsert({ id: notifId, user_name: member.id, type: 'travel', message: msg, task_id: null, read: 'unread', created_at: new Date().toISOString() }).then(() => {});
+    });
+  }
+
+  renderAttendancePage();
+  if (window.TeamOS.currentPage === 'dashboard') renderDashboard();
+}
+
+function _activeTravelPlan(uid) {
+  const plans = DS.travelPlans[uid] || [];
+  const today = _today();
+  return plans.find(p => p.startDate <= today && p.endDate >= today);
+}
+
+function _upcomingTravelPlan(uid) {
+  const plans = DS.travelPlans[uid] || [];
+  const today = _today();
+  return plans.filter(p => p.startDate > today).sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+}
+
+function _travelInfoHtml(uid) {
+  const active = _activeTravelPlan(uid);
+  const upcoming = _upcomingTravelPlan(uid);
+  const plan = active || upcoming;
+  if (!plan) return '';
+
+  const isActive = !!active;
+  const availColors = { fully:'#10B981', partially:'#F59E0B', limited:'#F97316', unavailable:'#EF4444' };
+  const availLabels = { fully:'Fully Available', partially:'Partially Available', limited:'Limited Availability', unavailable:'Unavailable' };
+  const ac = availColors[plan.availability] || '#6B7280';
+  const al = availLabels[plan.availability] || plan.availability;
+  const typeIcon = plan.type === 'work' ? '💼' : '🏖️';
+  const typeLabel = plan.type === 'work' ? 'Work' : 'Personal';
+
+  let dest = '';
+  if (plan.type === 'work' && plan.destination) dest = ` · ${plan.destination}`;
+  if (plan.type === 'personal' && !plan.private && plan.notes) dest = ` · ${plan.notes}`;
+
+  const prefix = isActive ? '' : `<span style="font-size:9px;background:rgba(14,165,233,0.12);color:#0EA5E9;padding:1px 6px;border-radius:var(--radius-full);font-weight:700;margin-right:4px;">UPCOMING</span>`;
+
+  return `<div style="font-size:var(--text-xs);margin-top:3px;color:var(--text-muted);line-height:1.5;">
+    ${prefix}${typeIcon} ${typeLabel}${dest}<br>
+    <span style="color:${ac};font-weight:600;">${al}</span> · ${plan.startDate} → ${plan.endDate}
+  </div>`;
 }
 
 function exportAttendance() {
