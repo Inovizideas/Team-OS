@@ -6848,9 +6848,12 @@ function renderDashboard() {
     /* Check-ins today */
     const checkinRows = DS.team.map(m => {
       const rec = (DS.checkins[m.id]||{})[todayStr] || {};
-      const att = (DS.attendance[m.id]||{})[todayStr] || '';
+      let att = (DS.attendance[m.id]||{})[todayStr] || '';
+      const activeTp = typeof _activeTravelPlan === 'function' ? _activeTravelPlan(m.id) : null;
+      if (activeTp) att = 'traveling';
       const attCfg = ATT_STATUSES?.[att];
       if (!rec.in && !att) return null;
+      const travelExtra = (typeof _travelInfoHtml === 'function') ? _travelInfoHtml(m.id) : '';
       return `<tr>
         <td>
           <div style="display:flex;align-items:center;gap:8px;">
@@ -6860,7 +6863,7 @@ function renderDashboard() {
         </td>
         <td style="font-size:var(--text-sm);">${rec.in ? `<span style="color:var(--brand-success);font-weight:600;">In ${rec.in}</span>` : '<span style="color:var(--text-muted);">—</span>'}</td>
         <td style="font-size:var(--text-sm);">${rec.out ? `<span style="color:var(--brand-danger);font-weight:600;">Out ${rec.out}</span>` : '<span style="color:var(--text-muted);">—</span>'}</td>
-        <td>${attCfg ? `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:var(--radius-full);background:${attCfg.bg};color:${attCfg.color};">${attCfg.emoji} ${attCfg.label}</span>` : '<span style="font-size:11px;color:var(--text-muted);">Not marked</span>'}</td>
+        <td>${attCfg ? `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:var(--radius-full);background:${attCfg.bg};color:${attCfg.color};">${attCfg.emoji} ${attCfg.label}</span>` : '<span style="font-size:11px;color:var(--text-muted);">Not marked</span>'}${travelExtra}</td>
       </tr>`;
     }).filter(Boolean).join('');
     /* Tasks updated today */
@@ -6921,7 +6924,7 @@ function renderDashboard() {
         const isMyTask = myTaskIds.has(t.id);
         const isDep    = depTasks.find(d=>d.id===t.id);
         const tag      = !admin && isDep ? `<span class="badge badge-neutral" style="font-size:9px;">dependency</span>` : '';
-        return `<tr>
+        return `<tr style="cursor:pointer;" onclick="openTaskDrawer('${t.id}')">
           <td>
             <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);line-height:1.4;">${escHtml(t.title)} ${tag}</div>
             <div style="font-size:var(--text-xs);color:var(--text-muted);">${t.brand||''}</div>
@@ -6930,14 +6933,14 @@ function renderDashboard() {
           <td><span style="font-size:var(--text-xs);font-weight:600;color:${t.due<_today()?'var(--brand-danger)':'var(--text-muted)'};">${t.due||''}</span></td>
           <td>
             <div class="task-row-actions">
-              <button class="action-icon-btn" title="Quick Status" onclick="openQuickStatusModal('${t.id}','${escHtml(t.title)}','${t.status}')">
+              <button class="action-icon-btn" title="Quick Status" onclick="event.stopPropagation();openQuickStatusModal('${t.id}','${escHtml(t.title)}','${t.status}')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
               </button>
-              <button class="action-icon-btn" title="Comment" onclick="openCommentModal('${t.id}','${escHtml(t.title)}')">
+              <button class="action-icon-btn" title="Comment" onclick="event.stopPropagation();openCommentModal('${t.id}','${escHtml(t.title)}')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               </button>
-              <button class="action-icon-btn" title="Open" onclick="openTaskDrawer('${t.id}')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <button class="action-icon-btn" title="Edit" onclick="event.stopPropagation();openTaskModal(DS.tasks.find(x=>x.id==='${t.id}'))">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
             </div>
           </td>
