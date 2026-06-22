@@ -9299,15 +9299,27 @@ function _callCardHtml(call, showDate) {
     return _formatCallTime(`${end.getHours().toString().padStart(2,'0')}:${end.getMinutes().toString().padStart(2,'0')}`);
   })();
 
-  return `<div style="padding:10px 14px;background:${bgColor};border-left:3px solid ${borderColor};border-radius:0 var(--radius-md) var(--radius-md) 0;margin-bottom:8px;">
+  const isDone = (() => {
+    if (!call.time || !call.date) return false;
+    const now = new Date();
+    const [h, m] = call.time.split(':').map(Number);
+    const end = new Date(now); end.setHours(h, m + (call.duration || 30), 0, 0);
+    if (call.date < _today()) return true;
+    return call.date === _today() && now > end;
+  })();
+
+  const doneStyle = isDone ? 'opacity:0.5;' : '';
+  const strikeStyle = isDone ? 'text-decoration:line-through;' : '';
+
+  return `<div style="padding:10px 14px;background:${bgColor};border-left:3px solid ${isDone ? '#6B7280' : borderColor};border-radius:0 var(--radius-md) var(--radius-md) 0;margin-bottom:8px;${doneStyle}">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);">${typeIcon} ${escHtml(title)}</div>
-        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:3px;">
+        <div style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);${strikeStyle}">${isDone?'✅ ':''}${typeIcon} ${escHtml(title)}</div>
+        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:3px;${strikeStyle}">
           🕐 ${timeStr} → ${endTime} (${call.duration || 30} min)${showDate ? ` · ${call.date}` : ''}
         </div>
-        ${call.agenda ? `<div style="font-size:var(--text-xs);color:var(--text-secondary);margin-top:3px;">📋 ${escHtml(call.agenda)}</div>` : ''}
-        ${call.meetLink ? `<a href="${escHtml(call.meetLink)}" target="_blank" style="font-size:var(--text-xs);color:#4285F4;font-weight:600;text-decoration:none;margin-top:4px;display:inline-block;">🔗 Join Google Meet</a>` : ''}
+        ${call.agenda ? `<div style="font-size:var(--text-xs);color:var(--text-secondary);margin-top:3px;${strikeStyle}">📋 ${escHtml(call.agenda)}</div>` : ''}
+        ${call.meetLink && !isDone ? `<a href="${escHtml(call.meetLink)}" target="_blank" style="font-size:var(--text-xs);color:#4285F4;font-weight:600;text-decoration:none;margin-top:4px;display:inline-block;">🔗 Join Google Meet</a>` : ''}
       </div>
       ${canDelete ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
         <button onclick="event.stopPropagation();_editCall('${call.id}')" title="Edit call" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px;line-height:1;">✏️</button>
@@ -9319,8 +9331,16 @@ function _callCardHtml(call, showDate) {
 
 function _callsTodayHtml() {
   const calls = _todaysCalls();
-  const internal = calls.filter(c => c.type === 'internal');
-  const external = calls.filter(c => c.type === 'external');
+  const _isCallDone = (c) => {
+    if (!c.time) return false;
+    const now = new Date();
+    const [h, m] = c.time.split(':').map(Number);
+    const end = new Date(now); end.setHours(h, m + (c.duration || 30), 0, 0);
+    return now > end;
+  };
+  const sortDoneLast = (a, b) => _isCallDone(a) - _isCallDone(b);
+  const internal = calls.filter(c => c.type === 'internal').sort(sortDoneLast);
+  const external = calls.filter(c => c.type === 'external').sort(sortDoneLast);
 
   if (!calls.length) return `<div style="text-align:center;padding:var(--space-lg);color:var(--text-muted);font-size:var(--text-sm);">No calls scheduled today</div>`;
 
