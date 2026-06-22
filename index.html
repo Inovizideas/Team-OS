@@ -6883,7 +6883,7 @@ function renderDashboard() {
         </td>
         <td style="font-size:var(--text-sm);">${rec.in ? `<span style="color:var(--brand-success);font-weight:600;">In ${rec.in}</span>` : '<span style="color:var(--text-muted);">—</span>'}</td>
         <td style="font-size:var(--text-sm);">${rec.out ? `<span style="color:var(--brand-danger);font-weight:600;">Out ${rec.out}</span>` : '<span style="color:var(--text-muted);">—</span>'}</td>
-        <td>${attCfg ? `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:var(--radius-full);background:${attCfg.bg};color:${attCfg.color};">${attCfg.emoji} ${attCfg.label}</span>` : '<span style="font-size:11px;color:var(--text-muted);">Not marked</span>'}${travelExtra}</td>
+        <td>${(typeof _isInCall==='function'&&_isInCall(m.id)) ? '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:var(--radius-full);background:rgba(239,68,68,0.10);color:#EF4444;border:1px solid rgba(239,68,68,0.25);">🔴 In a Call</span>' : attCfg ? `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:var(--radius-full);background:${attCfg.bg};color:${attCfg.color};">${attCfg.emoji} ${attCfg.label}</span>` : '<span style="font-size:11px;color:var(--text-muted);">Not marked</span>'}${travelExtra}</td>
       </tr>`;
     }).filter(Boolean).join('');
     /* Tasks updated today */
@@ -8363,7 +8363,7 @@ function _renderAttendanceAdmin(el) {
                   ${checkin!==''&&checkout===''?`<button onclick="adminMarkCheckout('${m.id}')" style="margin-left:8px;padding:2px 8px;font-size:10px;background:rgba(239,68,68,0.08);color:#EF4444;border:1px solid rgba(239,68,68,0.20);border-radius:var(--radius-sm);cursor:pointer;">Mark Out</button>`:''}
                 </td>
                 <td>
-                  ${cfg
+                  ${_isInCall(m.id) ? '<span style="font-size:var(--text-xs);font-weight:700;padding:3px 9px;border-radius:var(--radius-full);background:rgba(239,68,68,0.10);color:#EF4444;border:1px solid rgba(239,68,68,0.25);">🔴 In a Call</span>' : cfg
                     ? `<span style="font-size:var(--text-xs);font-weight:700;padding:3px 9px;border-radius:var(--radius-full);background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.color}33;">${cfg.emoji} ${cfg.label}</span>`
                     : `<span style="font-size:var(--text-xs);color:var(--text-muted);"></span>`}
                   ${_travelInfoHtml(m.id)}
