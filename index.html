@@ -1852,6 +1852,13 @@
       Kanban Board
     </div>
 
+    <div class="nav-item" data-page="calls" onclick="navigateTo('calls')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+      </svg>
+      Calls
+    </div>
+
     <div class="nav-item" data-page="team" onclick="navigateTo('team')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -2453,6 +2460,13 @@
     Kanban Board
   </div>
 
+  <div class="nav-item" data-page="calls" onclick="navigateTo('calls'); closeMobileNav();">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+    </svg>
+    Calls
+  </div>
+
   <div class="nav-item" data-page="team" onclick="navigateTo('team'); closeMobileNav();">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -2823,6 +2837,7 @@
     eod:        'Team EOD Updates',
     misctasks:  'Misc Tasks',
     recurring:  'Recurring Tasks',
+    calls:      'Calls',
   };
 
   function navigateTo(page) {
@@ -6697,7 +6712,7 @@ document.addEventListener('teamos:navigate', function(e) {
 function ensureExtraPages() {
   const mc = document.getElementById('main-content');
   if (!mc) return;
-  ['mytasks','watching','attendance','admin','eod','misctasks','recurring'].forEach(id => {
+  ['mytasks','watching','attendance','admin','eod','misctasks','recurring','calls'].forEach(id => {
     if (!document.getElementById('page-' + id)) {
       const sec = document.createElement('section');
       sec.className = 'page';
@@ -8006,6 +8021,7 @@ document.addEventListener('teamos:navigate', function(e) {
   if (e.detail.page === 'eod')       { ensureExtraPages(); setTimeout(renderEodPage, 50); }
   if (e.detail.page === 'misctasks') { ensureExtraPages(); setTimeout(renderMiscTasksPage, 50); }
   if (e.detail.page === 'recurring') { ensureExtraPages(); setTimeout(renderRecurringPage, 50); }
+  if (e.detail.page === 'calls')     { ensureExtraPages(); setTimeout(renderCallsPage, 50); }
 });
 
 /*  WATCHING PAGE  */
@@ -8935,7 +8951,7 @@ function _isInCall(uid) {
   return (DS.calls || []).some(c => {
     if (c.date !== today) return false;
     if (!c.time) return false;
-    const participants = c.type === 'internal' ? (c.participants || []) : [c.createdBy];
+    const participants = c.participants || [c.createdBy];
     if (!participants.includes(uid)) return false;
     const [h, m] = c.time.split(':').map(Number);
     const start = new Date(now); start.setHours(h, m, 0, 0);
@@ -8998,8 +9014,21 @@ function _openScheduleCallModal(prefillType) {
     <!-- External fields -->
     <div id="call-fields-external" style="display:${prefillType==='external'?'':'none'};">
       <div class="form-group" style="margin-bottom:12px;">
-        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Contact Name / Company</label>
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">External Contact / Company</label>
         <input id="call-ext-contact" type="text" class="form-control" placeholder="e.g. Rahul from Acme Corp" style="font-size:var(--text-sm);">
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Team Members Joining</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;" id="call-ext-participants">
+          ${DS.team.map(mem => {
+            const isSelf = mem.id === (window.TeamOS?.currentUser?.initials || 'NG');
+            return \`<label style="display:flex;align-items:center;gap:5px;font-size:var(--text-xs);padding:5px 10px;border-radius:var(--radius-md);background:var(--bg-elevated);border:1px solid var(--border-default);cursor:pointer;">
+              <input type="checkbox" value="\${mem.id}" \${isSelf ? 'checked' : ''} style="accent-color:var(--brand-primary);">
+              <span style="width:18px;height:18px;border-radius:50%;background:\${mem.color};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:white;">\${mem.initials}</span>
+              \${mem.name.split(' ')[0]}
+            </label>\`;
+          }).join('')}
+        </div>
       </div>
     </div>
 
@@ -9079,7 +9108,9 @@ function _submitCall() {
   } else {
     call.extContact = document.getElementById('call-ext-contact')?.value || '';
     if (!call.extContact) { showToast({ type: 'warning', title: 'Required', message: 'Enter contact name.' }); return; }
-    call.participants = [createdBy];
+    const extChecks = document.querySelectorAll('#call-ext-participants input[type="checkbox"]:checked');
+    call.participants = [...extChecks].map(c => c.value);
+    if (!call.participants.length) call.participants = [createdBy];
   }
 
   if (!DS.calls) DS.calls = [];
@@ -9138,7 +9169,8 @@ function _callCardHtml(call, showDate) {
     const names = (call.participants || []).map(p => DS.team.find(m => m.id === p)?.name?.split(' ')[0] || p);
     title = names.join(', ');
   } else {
-    title = call.extContact || 'External Call';
+    const teamNames = (call.participants || []).map(p => DS.team.find(m => m.id === p)?.name?.split(' ')[0] || p);
+    title = (call.extContact || 'External Call') + (teamNames.length ? ' · ' + teamNames.join(', ') : '');
   }
 
   const timeStr = _formatCallTime(call.time);
@@ -9181,6 +9213,74 @@ function _callsTodayHtml() {
     html += external.map(c => _callCardHtml(c, false)).join('');
   }
   return html;
+}
+
+/* ── CALLS PAGE ──────────────────────────────────────────────────────────── */
+function renderCallsPage() {
+  const el = document.getElementById('page-calls');
+  if (!el) return;
+  const today = _today();
+  const todayCalls = _callsForDate(today);
+  const upcomingCalls = (DS.calls || []).filter(c => c.date > today).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const pastCalls = (DS.calls || []).filter(c => c.date < today).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)).slice(0, 20);
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2>📞 Calls</h2>
+        <p>Schedule and track internal & external calls.</p>
+      </div>
+      <div class="page-header-actions" style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="_openScheduleCallModal('internal')">+ Internal Call</button>
+        <button class="btn btn-secondary btn-sm" onclick="_openScheduleCallModal('external')">+ External Call</button>
+      </div>
+    </div>
+
+    <!-- Today -->
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--space-xl);">
+      <div style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-default);font-size:var(--text-sm);font-weight:700;">
+        📅 Today — ${today} <span style="font-weight:400;color:var(--text-muted);">(${todayCalls.length} call${todayCalls.length!==1?'s':''})</span>
+      </div>
+      <div style="padding:var(--space-md);">
+        ${todayCalls.length ? (() => {
+          const internal = todayCalls.filter(c => c.type === 'internal');
+          const external = todayCalls.filter(c => c.type === 'external');
+          let h = '';
+          if (internal.length) {
+            h += '<div style="font-size:var(--text-xs);font-weight:700;color:#4F46E5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">👥 Internal (' + internal.length + ')</div>';
+            h += internal.map(c => _callCardHtml(c, false)).join('');
+          }
+          if (external.length) {
+            h += '<div style="font-size:var(--text-xs);font-weight:700;color:#06B6D4;text-transform:uppercase;letter-spacing:0.5px;margin:' + (internal.length ? '12px' : '0') + ' 0 8px;">🏢 External (' + external.length + ')</div>';
+            h += external.map(c => _callCardHtml(c, false)).join('');
+          }
+          return h;
+        })() : '<div style="text-align:center;padding:var(--space-lg);color:var(--text-muted);font-size:var(--text-sm);">No calls scheduled today</div>'}
+      </div>
+    </div>
+
+    <!-- Upcoming -->
+    ${upcomingCalls.length ? `
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--space-xl);">
+      <div style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-default);font-size:var(--text-sm);font-weight:700;">
+        🔜 Upcoming <span style="font-weight:400;color:var(--text-muted);">(${upcomingCalls.length})</span>
+      </div>
+      <div style="padding:var(--space-md);">
+        ${upcomingCalls.map(c => _callCardHtml(c, true)).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- Past -->
+    ${pastCalls.length ? `
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-default);font-size:var(--text-sm);font-weight:700;">
+        📋 Recent <span style="font-weight:400;color:var(--text-muted);">(last ${pastCalls.length})</span>
+      </div>
+      <div style="padding:var(--space-md);opacity:0.7;">
+        ${pastCalls.map(c => _callCardHtml(c, true)).join('')}
+      </div>
+    </div>` : ''}
+  `;
 }
 
 function exportAttendance() {
@@ -10550,6 +10650,7 @@ function _routeTaskDone(t) {
   else if (p === 'mytasks') renderMyTasksPage();
   else if (p === 'misctasks') renderMiscTasksPage && renderMiscTasksPage();
   else if (p === 'recurring') renderRecurringPage && renderRecurringPage();
+  else if (p === 'calls') renderCallsPage && renderCallsPage();
   if (window._drawerTaskId === t.id) openTaskDrawer(t.id);
 }
 
@@ -10601,6 +10702,7 @@ function approveTask(taskId) {
   else if (p === 'mytasks') renderMyTasksPage();
   else if (p === 'misctasks') renderMiscTasksPage && renderMiscTasksPage();
   else if (p === 'recurring') renderRecurringPage && renderRecurringPage();
+  else if (p === 'calls') renderCallsPage && renderCallsPage();
   if (window._drawerTaskId === taskId) openTaskDrawer(taskId);
 }
 
@@ -10793,6 +10895,7 @@ document.addEventListener('teamos:ready', function() {
       else if (pg === 'eod')        _try(renderEodPage);
       else if (pg === 'misctasks')  _try(renderMiscTasksPage);
       else if (pg === 'recurring')  _try(renderRecurringPage);
+      else if (pg === 'calls')      _try(renderCallsPage);
       if (ok) {
         showToast({ type:'success', title:'✓ Synced', message: DS.tasks.length + ' tasks loaded from Supabase.', duration:2500 });
       } else {
@@ -10868,6 +10971,7 @@ document.addEventListener('teamos:ready', function() {
         else if (pg === 'watching')   _try(renderWatchingPage);
         else if (pg === 'misctasks')  _try(renderMiscTasksPage);
         else if (pg === 'recurring')  _try(renderRecurringPage);
+        else if (pg === 'calls')      _try(renderCallsPage);
         else if (pg === 'attendance') _try(renderAttendancePage);
         else if (pg === 'team')       _try(renderTeamPage);
         else if (pg === 'brands')     _try(renderProjectsPage);
