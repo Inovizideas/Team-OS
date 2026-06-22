@@ -6892,7 +6892,7 @@ function renderDashboard() {
         <td style="font-size:var(--text-sm);font-weight:600;max-width:200px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escHtml(t.title)}</td>
         <td>${owner?`<div style="display:flex;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;background:${owner.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;">${owner.initials}</div><span style="font-size:var(--text-xs);">${owner.name.split(' ')[0]}</span></div>`:''}</td>
         <td>${_statusBadge(t.status)}</td>
-        <td style="font-size:var(--text-xs);color:var(--text-muted);">${(t.updatedAt||t.createdAt||'').slice(11,16)}</td>
+        <td style="font-size:var(--text-xs);color:var(--text-muted);">${_formatCallTime((t.updatedAt||t.createdAt||'').slice(11,16))}</td>
       </tr>`;
     }).join('');
     return `
@@ -13346,7 +13346,7 @@ function renderMiscTasksPage() {
             <td>${_statusBadge(t.status)}</td>
             <td>${_priorityBadge(t.priority)}</td>
             <td>${_assigneeAvatars(t.assignees||[])}</td>
-            <td><span style="font-size:var(--text-xs);font-weight:600;color:${t.due&&t.due<_today()&&t.status!=='Done'?'var(--brand-danger)':'var(--text-muted)'};">${t.due||'—'}${t.dueTime?' '+t.dueTime:''}</span></td>
+            <td><span style="font-size:var(--text-xs);font-weight:600;color:${t.due&&t.due<_today()&&t.status!=='Done'?'var(--brand-danger)':'var(--text-muted)'};">${t.due||'—'}${t.dueTime?' '+(typeof _formatCallTime==='function'?_formatCallTime(t.dueTime):t.dueTime):''}</span></td>
             <td>
               <div class="task-row-actions">
                 <button class="action-icon-btn" onclick="openTaskDrawer('${t.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
@@ -13408,7 +13408,7 @@ function renderRecurringPage() {
               <td><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:var(--radius-full);background:${(freqColor[t.recurrence.split(':')[0]]||'#6B7280')}20;color:${freqColor[t.recurrence.split(':')[0]]||'#6B7280'};">🔁 ${(window._recurLabel||((r)=>r))(t.recurrence)}</span></td>
               <td>${_assigneeAvatars(t.assignees||[])}</td>
               <td><span style="font-size:var(--text-xs);font-weight:600;color:${isOverdue?'var(--brand-danger)':isDueToday?'var(--brand-warning)':'var(--text-muted)'};">${t.due||'—'}${isOverdue?' ⚠️':''}${isDueToday?' 📅 Today':''}</span></td>
-              <td><span style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);">${t.dueTime||'—'}</span></td>
+              <td><span style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);">${t.dueTime?(typeof _formatCallTime==='function'?_formatCallTime(t.dueTime):t.dueTime):'—'}</span></td>
               <td>${_statusBadge(t.status)}</td>
               <td>
                 <div class="task-row-actions">
