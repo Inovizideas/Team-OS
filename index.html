@@ -9121,21 +9121,41 @@ function _submitCall() {
   const timeStr = _formatCallTime(time);
   showToast({ type: 'success', title: 'Call scheduled', message: `${agenda || (type === 'internal' ? 'Team call' : call.extContact)} at ${timeStr}` });
 
-  /* Notify participants */
-  if (_inGAS()) {
-    const sb = _getSB();
-    const pList = type === 'internal'
-      ? call.participants.map(p => DS.team.find(m => m.id === p)?.name?.split(' ')[0] || p).join(', ')
-      : call.extContact;
-    const msg = type === 'internal'
-      ? `${creatorName} scheduled a team call: ${agenda || 'No agenda'} on ${date} at ${timeStr} with ${pList}${meetLink ? ' (Meet link attached)' : ''}`
-      : `${creatorName} has an external call with ${call.extContact} on ${date} at ${timeStr}`;
-    (call.participants || []).forEach(uid => {
-      if (uid === createdBy) return;
+  /* Notify participants — in-app + email */
+  const pList = call.participants.map(p => DS.team.find(m => m.id === p)?.name?.split(' ')[0] || p).join(', ');
+  const inAppMsg = type === 'internal'
+    ? `${creatorName} scheduled a team call: ${agenda || 'No agenda'} on ${date} at ${timeStr} with ${pList}${meetLink ? ' (Meet link attached)' : ''}`
+    : `${creatorName} has an external call with ${call.extContact} on ${date} at ${timeStr} — Team: ${pList}`;
+
+  const emailSubject = type === 'internal'
+    ? `📞 Team Call: ${agenda || 'Meeting'} — ${date} at ${timeStr}`
+    : `📞 External Call with ${call.extContact} — ${date} at ${timeStr}`;
+
+  const emailBody = [
+    `Hi {{to_name}},`,
+    ``,
+    `${creatorName} has scheduled a ${type === 'internal' ? 'team' : 'external'} call:`,
+    ``,
+    `📋 ${agenda || 'No agenda specified'}`,
+    `📅 Date: ${date}`,
+    `🕐 Time: ${timeStr} (${duration} min)`,
+    type === 'internal' ? `👥 Participants: ${pList}` : `🏢 External Contact: ${call.extContact}\n👥 Team: ${pList}`,
+    meetLink ? `\n🔗 Google Meet: ${meetLink}` : '',
+    ``,
+    `— IIPL Command Center`,
+  ].filter(Boolean).join('\n');
+
+  (call.participants || []).forEach(uid => {
+    if (uid === createdBy) return;
+    /* In-app notification */
+    if (_inGAS()) {
+      const sb = _getSB();
       const nId = 'n_call_' + call.id + '_' + uid;
-      sb.from('notifications').upsert({ id: nId, user_name: uid, type: 'call', message: msg, task_id: null, read: 'unread', created_at: new Date().toISOString() }).then(() => {});
-    });
-  }
+      sb.from('notifications').upsert({ id: nId, user_name: uid, type: 'call', message: inAppMsg, task_id: null, read: 'unread', created_at: new Date().toISOString() }).then(() => {});
+    }
+    /* Email notification */
+    _sendEmail(uid, emailSubject, emailBody, agenda || 'Meeting');
+  });
 
   renderAttendancePage();
   if (window.TeamOS.currentPage === 'dashboard') renderDashboard();
