@@ -10977,8 +10977,7 @@ document.addEventListener('teamos:ready', function() {
         }
 
         else if (pg === 'finance') {
-          /* Skip if bill form has unsaved input */
-          if (!_billFormHasInput()) _try(renderFinancePage);
+          /* Never re-render finance during sync — iframe reload causes blank flash */
         }
 
         else if (pg === 'mytasks')    _try(renderMyTasksPage);
