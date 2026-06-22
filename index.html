@@ -6571,6 +6571,7 @@ const DS = {
   team:        TEAM_MEMBERS.slice(),   // seeded from Part 2 const
   attendance:  {},
   travelPlans: {},
+  calls: [],
   announcements: [],
   activity:    [],
   settings: {
@@ -6598,6 +6599,7 @@ const LS = {
   ATTENDANCE:    'iipl_attendance',
   CHECKINS:      'iipl_checkins',
   TRAVEL:        'iipl_travel',
+  CALLS:         'iipl_calls',
   ANNOUNCEMENTS: 'iipl_announcements',
   VENDORS:       'iipl_vendors',
   CAMPAIGNS:     'iipl_campaigns',
@@ -6612,6 +6614,7 @@ function _saveLocal() {
     _lsSet(LS.ATTENDANCE,    JSON.stringify(DS.attendance));
     _lsSet(LS.CHECKINS,      JSON.stringify(DS.checkins || {}));
     _lsSet(LS.TRAVEL,        JSON.stringify(DS.travelPlans || {}));
+    _lsSet(LS.CALLS,         JSON.stringify(DS.calls || []));
     _lsSet(LS.ANNOUNCEMENTS, JSON.stringify(DS.announcements));
     _lsSet(LS.ACTIVITY,      JSON.stringify(DS.activity.slice(0,50)));
     if (window.DS_vendors)   _lsSet(LS.VENDORS,   JSON.stringify(window.DS_vendors));
@@ -6636,6 +6639,9 @@ function _loadLocal() {
 
     const travel = _lsGet(LS.TRAVEL);
     if (travel) DS.travelPlans = JSON.parse(travel);
+
+    const calls = _lsGet(LS.CALLS);
+    if (calls) DS.calls = JSON.parse(calls);
 
     const announcements = _lsGet(LS.ANNOUNCEMENTS);
     if (announcements) DS.announcements = JSON.parse(announcements);
@@ -6906,6 +6912,17 @@ function renderDashboard() {
             </table>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Calls Today -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-default);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:var(--text-sm);font-weight:700;">📞 Calls Today</span>
+        <button onclick="_openScheduleCallModal('internal')" style="font-size:var(--text-xs);font-weight:700;padding:4px 12px;background:rgba(240,180,41,0.12);color:var(--brand-primary);border:1px solid rgba(240,180,41,0.30);border-radius:var(--radius-sm);cursor:pointer;">+ Schedule</button>
+      </div>
+      <div style="padding:var(--space-md);max-height:300px;overflow-y:auto;">
+        ${_callsTodayHtml()}
       </div>
     </div>`;
   })();
@@ -8214,6 +8231,17 @@ function _renderAttendanceMember(el) {
       </div>
     </div>
 
+    <!-- Calls Today -->
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--space-xl);">
+      <div style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-default);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:var(--text-sm);font-weight:700;">📞 Calls Today</span>
+        <button onclick="_openScheduleCallModal('internal')" style="font-size:var(--text-xs);font-weight:700;padding:4px 12px;background:rgba(240,180,41,0.12);color:var(--brand-primary);border:1px solid rgba(240,180,41,0.30);border-radius:var(--radius-sm);cursor:pointer;">+ Schedule Call</button>
+      </div>
+      <div style="padding:var(--space-md);max-height:400px;overflow-y:auto;">
+        ${_callsTodayHtml()}
+      </div>
+    </div>
+
     <!-- Team board  everyone's current status -->
     <div class="section-header" style="margin-bottom:var(--space-md);">
       <div class="section-title">Team Availability Right Now</div>
@@ -8228,7 +8256,8 @@ function _renderAttendanceMember(el) {
             <div style="min-width:0;">
               <div style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.name}</div>
               <div style="margin-top:3px;">
-                ${cfg
+                ${_isInCall(m.id) ? `<span style="font-size:var(--text-xs);font-weight:700;color:#EF4444;">🔴 In a Call</span>` :
+                  cfg
                   ? `<span style="font-size:var(--text-xs);font-weight:600;color:${cfg.color};">${cfg.emoji} ${cfg.label}</span>`
                   : `<span style="font-size:var(--text-xs);color:var(--text-muted);"> Not marked</span>`}
                 ${_travelInfoHtml(m.id)}
@@ -8334,6 +8363,17 @@ function _renderAttendanceAdmin(el) {
               </tr>`).join('')}
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Calls Today -->
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--space-xl);">
+      <div style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-default);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:var(--text-sm);font-weight:700;">📞 Calls Today</span>
+        <button onclick="_openScheduleCallModal('internal')" style="font-size:var(--text-xs);font-weight:700;padding:4px 12px;background:rgba(240,180,41,0.12);color:var(--brand-primary);border:1px solid rgba(240,180,41,0.30);border-radius:var(--radius-sm);cursor:pointer;">+ Schedule Call</button>
+      </div>
+      <div style="padding:var(--space-md);max-height:400px;overflow-y:auto;">
+        ${_callsTodayHtml()}
       </div>
     </div>
 
@@ -8876,6 +8916,271 @@ function _travelInfoHtml(uid) {
     ${prefix}${typeIcon} ${typeLabel}${dest}<br>
     <span style="color:${ac};font-weight:600;">${al}</span> · ${plan.startDate} → ${plan.endDate}
   </div>`;
+}
+
+/* ── CALLS OF THE DAY ────────────────────────────────────────────────────── */
+
+function _todaysCalls() {
+  const today = _today();
+  return (DS.calls || []).filter(c => c.date === today).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+}
+
+function _callsForDate(date) {
+  return (DS.calls || []).filter(c => c.date === date).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+}
+
+function _isInCall(uid) {
+  const now = new Date();
+  const today = _today();
+  return (DS.calls || []).some(c => {
+    if (c.date !== today) return false;
+    if (!c.time) return false;
+    const participants = c.type === 'internal' ? (c.participants || []) : [c.createdBy];
+    if (!participants.includes(uid)) return false;
+    const [h, m] = c.time.split(':').map(Number);
+    const start = new Date(now); start.setHours(h, m, 0, 0);
+    const dur = c.duration || 30;
+    const end = new Date(start.getTime() + dur * 60000);
+    return now >= start && now <= end;
+  });
+}
+
+function _openScheduleCallModal(prefillType) {
+  let m = document.getElementById('modal-call-overlay');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'modal-call-overlay';
+    m.className = 'modal-overlay';
+    m.innerHTML = `<div class="modal" style="max-width:520px;" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="modal-title">📞 Schedule a Call</h3>
+        <button class="modal-close" onclick="closeModal('modal-call-overlay')" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="call-modal-body"></div>
+    </div>`;
+    document.body.appendChild(m);
+  }
+  const body = document.getElementById('call-modal-body');
+  const today = _today();
+  const nowH = new Date().getHours().toString().padStart(2, '0');
+  const nowM = (Math.ceil(new Date().getMinutes() / 5) * 5).toString().padStart(2, '0');
+  const defTime = `${nowH}:${nowM === '60' ? '00' : nowM}`;
+
+  body.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button id="call-type-internal" onclick="_callTypeToggle('internal')" style="flex:1;padding:10px;border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:700;cursor:pointer;transition:all 0.15s;border:2px solid ${prefillType==='external'?'var(--border-default)':'var(--brand-primary)'};background:${prefillType==='external'?'var(--bg-elevated)':'rgba(240,180,41,0.12)'};color:${prefillType==='external'?'var(--text-secondary)':'var(--brand-primary)'};">
+        👥 Internal
+      </button>
+      <button id="call-type-external" onclick="_callTypeToggle('external')" style="flex:1;padding:10px;border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:700;cursor:pointer;transition:all 0.15s;border:2px solid ${prefillType==='external'?'var(--brand-primary)':'var(--border-default)'};background:${prefillType==='external'?'rgba(240,180,41,0.12)':'var(--bg-elevated)'};color:${prefillType==='external'?'var(--brand-primary)':'var(--text-secondary)'};">
+        🏢 External
+      </button>
+    </div>
+
+    <!-- Internal fields -->
+    <div id="call-fields-internal" style="display:${prefillType==='external'?'none':''};">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Participants</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;" id="call-participants">
+          ${DS.team.map(mem => {
+            const isSelf = mem.id === (window.TeamOS?.currentUser?.initials || 'NG');
+            return `<label style="display:flex;align-items:center;gap:5px;font-size:var(--text-xs);padding:5px 10px;border-radius:var(--radius-md);background:var(--bg-elevated);border:1px solid var(--border-default);cursor:pointer;">
+              <input type="checkbox" value="${mem.id}" ${isSelf ? 'checked' : ''} style="accent-color:var(--brand-primary);">
+              <span style="width:18px;height:18px;border-radius:50%;background:${mem.color};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:white;">${mem.initials}</span>
+              ${mem.name.split(' ')[0]}
+            </label>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- External fields -->
+    <div id="call-fields-external" style="display:${prefillType==='external'?'':'none'};">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Contact Name / Company</label>
+        <input id="call-ext-contact" type="text" class="form-control" placeholder="e.g. Rahul from Acme Corp" style="font-size:var(--text-sm);">
+      </div>
+    </div>
+
+    <!-- Common fields -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div class="form-group">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Date</label>
+        <input id="call-date" type="date" class="form-control" value="${today}" style="font-size:var(--text-sm);">
+      </div>
+      <div class="form-group">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Time</label>
+        <input id="call-time" type="time" class="form-control" value="${defTime}" style="font-size:var(--text-sm);">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Duration</label>
+      <select id="call-duration" class="form-control" style="font-size:var(--text-sm);">
+        <option value="15">15 min</option>
+        <option value="30" selected>30 min</option>
+        <option value="45">45 min</option>
+        <option value="60">1 hour</option>
+        <option value="90">1.5 hours</option>
+        <option value="120">2 hours</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Agenda / Topic <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+      <input id="call-agenda" type="text" class="form-control" placeholder="e.g. Sprint review, Client feedback" style="font-size:var(--text-sm);">
+    </div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Google Meet Link <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+      <div style="display:flex;gap:8px;">
+        <input id="call-meet-link" type="url" class="form-control" placeholder="Paste Meet link here" style="font-size:var(--text-sm);flex:1;">
+        <button onclick="window.open('https://meet.google.com/new','_blank')" style="padding:6px 12px;font-size:var(--text-xs);font-weight:700;background:rgba(66,133,244,0.12);color:#4285F4;border:1px solid rgba(66,133,244,0.30);border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;" title="Opens Google Meet in a new tab — copy the link back here">
+          + Create Meet
+        </button>
+      </div>
+    </div>
+    <button onclick="_submitCall()" class="btn btn-primary" style="width:100%;padding:10px;font-weight:700;">Schedule Call</button>`;
+
+  window._callType = prefillType || 'internal';
+  openModal('modal-call-overlay');
+}
+
+function _callTypeToggle(type) {
+  window._callType = type;
+  document.getElementById('call-fields-internal').style.display = type === 'internal' ? '' : 'none';
+  document.getElementById('call-fields-external').style.display = type === 'external' ? '' : 'none';
+  const intBtn = document.getElementById('call-type-internal');
+  const extBtn = document.getElementById('call-type-external');
+  intBtn.style.borderColor = type === 'internal' ? 'var(--brand-primary)' : 'var(--border-default)';
+  intBtn.style.background = type === 'internal' ? 'rgba(240,180,41,0.12)' : 'var(--bg-elevated)';
+  intBtn.style.color = type === 'internal' ? 'var(--brand-primary)' : 'var(--text-secondary)';
+  extBtn.style.borderColor = type === 'external' ? 'var(--brand-primary)' : 'var(--border-default)';
+  extBtn.style.background = type === 'external' ? 'rgba(240,180,41,0.12)' : 'var(--bg-elevated)';
+  extBtn.style.color = type === 'external' ? 'var(--brand-primary)' : 'var(--text-secondary)';
+}
+
+function _submitCall() {
+  const type = window._callType || 'internal';
+  const date = document.getElementById('call-date')?.value;
+  const time = document.getElementById('call-time')?.value;
+  const duration = parseInt(document.getElementById('call-duration')?.value) || 30;
+  const agenda = document.getElementById('call-agenda')?.value || '';
+  const meetLink = document.getElementById('call-meet-link')?.value || '';
+  const createdBy = window.TeamOS?.currentUser?.initials || 'NG';
+  const creatorName = window.TeamOS?.currentUser?.name || createdBy;
+
+  if (!date || !time) { showToast({ type: 'warning', title: 'Required', message: 'Please set date and time.' }); return; }
+
+  const call = { id: 'call_' + Date.now(), type, date, time, duration, agenda, meetLink, createdBy, createdAt: new Date().toISOString() };
+
+  if (type === 'internal') {
+    const checks = document.querySelectorAll('#call-participants input[type="checkbox"]:checked');
+    call.participants = [...checks].map(c => c.value);
+    if (call.participants.length < 2) { showToast({ type: 'warning', title: 'Required', message: 'Select at least 2 participants.' }); return; }
+  } else {
+    call.extContact = document.getElementById('call-ext-contact')?.value || '';
+    if (!call.extContact) { showToast({ type: 'warning', title: 'Required', message: 'Enter contact name.' }); return; }
+    call.participants = [createdBy];
+  }
+
+  if (!DS.calls) DS.calls = [];
+  DS.calls.push(call);
+  _saveLocal();
+  closeModal('modal-call-overlay');
+
+  const timeStr = _formatCallTime(time);
+  showToast({ type: 'success', title: 'Call scheduled', message: `${agenda || (type === 'internal' ? 'Team call' : call.extContact)} at ${timeStr}` });
+
+  /* Notify participants */
+  if (_inGAS()) {
+    const sb = _getSB();
+    const pList = type === 'internal'
+      ? call.participants.map(p => DS.team.find(m => m.id === p)?.name?.split(' ')[0] || p).join(', ')
+      : call.extContact;
+    const msg = type === 'internal'
+      ? `${creatorName} scheduled a team call: ${agenda || 'No agenda'} on ${date} at ${timeStr} with ${pList}${meetLink ? ' (Meet link attached)' : ''}`
+      : `${creatorName} has an external call with ${call.extContact} on ${date} at ${timeStr}`;
+    (call.participants || []).forEach(uid => {
+      if (uid === createdBy) return;
+      const nId = 'n_call_' + call.id + '_' + uid;
+      sb.from('notifications').upsert({ id: nId, user_name: uid, type: 'call', message: msg, task_id: null, read: 'unread', created_at: new Date().toISOString() }).then(() => {});
+    });
+  }
+
+  renderAttendancePage();
+  if (window.TeamOS.currentPage === 'dashboard') renderDashboard();
+}
+
+function _formatCallTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  return `${((h % 12) || 12)}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
+function _deleteCall(callId) {
+  DS.calls = (DS.calls || []).filter(c => c.id !== callId);
+  _saveLocal();
+  showToast({ type: 'warning', title: 'Call removed' });
+  renderAttendancePage();
+  if (window.TeamOS.currentPage === 'dashboard') renderDashboard();
+}
+
+function _callCardHtml(call, showDate) {
+  const isInternal = call.type === 'internal';
+  const borderColor = isInternal ? '#4F46E5' : '#06B6D4';
+  const bgColor = isInternal ? 'rgba(79,70,229,0.06)' : 'rgba(6,182,212,0.06)';
+  const typeIcon = isInternal ? '👥' : '🏢';
+  const uid = window.TeamOS?.currentUser?.initials || 'NG';
+  const canDelete = call.createdBy === uid || isAdmin();
+
+  let title = '';
+  if (isInternal) {
+    const names = (call.participants || []).map(p => DS.team.find(m => m.id === p)?.name?.split(' ')[0] || p);
+    title = names.join(', ');
+  } else {
+    title = call.extContact || 'External Call';
+  }
+
+  const timeStr = _formatCallTime(call.time);
+  const endTime = (() => {
+    if (!call.time) return '';
+    const [h, m] = call.time.split(':').map(Number);
+    const end = new Date(2000, 0, 1, h, m + (call.duration || 30));
+    return _formatCallTime(`${end.getHours().toString().padStart(2,'0')}:${end.getMinutes().toString().padStart(2,'0')}`);
+  })();
+
+  return `<div style="padding:10px 14px;background:${bgColor};border-left:3px solid ${borderColor};border-radius:0 var(--radius-md) var(--radius-md) 0;margin-bottom:8px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);">${typeIcon} ${escHtml(title)}</div>
+        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:3px;">
+          🕐 ${timeStr} → ${endTime} (${call.duration || 30} min)${showDate ? ` · ${call.date}` : ''}
+        </div>
+        ${call.agenda ? `<div style="font-size:var(--text-xs);color:var(--text-secondary);margin-top:3px;">📋 ${escHtml(call.agenda)}</div>` : ''}
+        ${call.meetLink ? `<a href="${escHtml(call.meetLink)}" target="_blank" style="font-size:var(--text-xs);color:#4285F4;font-weight:600;text-decoration:none;margin-top:4px;display:inline-block;">🔗 Join Google Meet</a>` : ''}
+      </div>
+      ${canDelete ? `<button onclick="event.stopPropagation();_deleteCall('${call.id}')" title="Remove" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:2px;line-height:1;">✕</button>` : ''}
+    </div>
+  </div>`;
+}
+
+function _callsTodayHtml() {
+  const calls = _todaysCalls();
+  const internal = calls.filter(c => c.type === 'internal');
+  const external = calls.filter(c => c.type === 'external');
+
+  if (!calls.length) return `<div style="text-align:center;padding:var(--space-lg);color:var(--text-muted);font-size:var(--text-sm);">No calls scheduled today</div>`;
+
+  let html = '';
+  if (internal.length) {
+    html += `<div style="font-size:var(--text-xs);font-weight:700;color:#4F46E5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;padding:0 4px;">👥 Internal (${internal.length})</div>`;
+    html += internal.map(c => _callCardHtml(c, false)).join('');
+  }
+  if (external.length) {
+    html += `<div style="font-size:var(--text-xs);font-weight:700;color:#06B6D4;text-transform:uppercase;letter-spacing:0.5px;margin:${internal.length ? '12px' : '0'} 0 8px;padding:0 4px;">🏢 External (${external.length})</div>`;
+    html += external.map(c => _callCardHtml(c, false)).join('');
+  }
+  return html;
 }
 
 function exportAttendance() {
