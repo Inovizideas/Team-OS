@@ -9089,7 +9089,11 @@ function _submitCall() {
 
   if (!date || !time) { showToast({ type: 'warning', title: 'Required', message: 'Please set date and time.' }); return; }
 
-  const call = { id: 'call_' + Date.now(), type, date, time, duration, agenda, meetLink, createdBy, createdAt: new Date().toISOString() };
+  const isEdit = !!window._editingCallId;
+  const call = isEdit
+    ? (DS.calls || []).find(c => c.id === window._editingCallId) || {}
+    : { id: 'call_' + Date.now(), createdAt: new Date().toISOString() };
+  Object.assign(call, { type, date, time, duration, agenda, meetLink, createdBy });
 
   if (type === 'internal') {
     const checks = document.querySelectorAll('#call-participants input[type="checkbox"]:checked');
@@ -9104,13 +9108,14 @@ function _submitCall() {
   }
 
   if (!DS.calls) DS.calls = [];
-  DS.calls.push(call);
+  if (!isEdit) DS.calls.push(call);
+  window._editingCallId = null;
   _saveLocal();
   if (_inGAS()) GAS.saveCall(call);
   closeModal('modal-call-overlay');
 
   const timeStr = _formatCallTime(time);
-  showToast({ type: 'success', title: 'Call scheduled', message: `${agenda || (type === 'internal' ? 'Team call' : call.extContact)} at ${timeStr}` });
+  showToast({ type: 'success', title: isEdit ? 'Call updated' : 'Call scheduled', message: `${agenda || (type === 'internal' ? 'Team call' : call.extContact)} at ${timeStr}` });
 
   /* Notify participants — in-app + email */
   const pList = call.participants.map(p => DS.team.find(m => m.id === p)?.name?.split(' ')[0] || p).join(', ');
@@ -9168,6 +9173,61 @@ function _deleteCall(callId) {
   if (window.TeamOS.currentPage === 'dashboard') renderDashboard();
 }
 
+function _confirmDeleteCall(callId) {
+  const call = (DS.calls || []).find(c => c.id === callId);
+  const title = call ? (call.type === 'internal'
+    ? (call.participants || []).map(p => DS.team.find(m => m.id === p)?.name?.split(' ')[0] || p).join(', ')
+    : call.extContact || 'External Call') : 'this call';
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-delete-call-overlay';
+  overlay.innerHTML = `<div class="modal" style="max-width:380px;" role="dialog" aria-modal="true">
+    <div class="modal-header" style="border-bottom-color:rgba(239,68,68,0.20);">
+      <h3 class="modal-title" style="color:#EF4444;">🗑 Delete Call</h3>
+      <button class="modal-close" onclick="closeModal('modal-delete-call-overlay');document.getElementById('modal-delete-call-overlay')?.remove();" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:var(--text-sm);color:var(--text-secondary);">Delete <strong style="color:var(--text-primary);">"${escHtml(title)}"</strong>?</p>
+      <p style="font-size:var(--text-sm);color:#EF4444;margin-top:8px;">This cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-delete-call-overlay');document.getElementById('modal-delete-call-overlay')?.remove();">Cancel</button>
+      <button class="btn btn-sm" style="background:#EF4444;color:white;border:none;padding:8px 18px;border-radius:var(--radius-md);font-weight:700;cursor:pointer;" onclick="_deleteCall('${callId}');closeModal('modal-delete-call-overlay');document.getElementById('modal-delete-call-overlay')?.remove();">Yes, Delete</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  openModal('modal-delete-call-overlay');
+}
+
+function _editCall(callId) {
+  const call = (DS.calls || []).find(c => c.id === callId);
+  if (!call) return;
+  _openScheduleCallModal(call.type || 'internal');
+  setTimeout(() => {
+    document.getElementById('call-date').value = call.date || _today();
+    document.getElementById('call-time').value = call.time || '';
+    document.getElementById('call-duration').value = String(call.duration || 30);
+    document.getElementById('call-agenda').value = call.agenda || '';
+    document.getElementById('call-meet-link').value = call.meetLink || '';
+
+    if (call.type === 'external') {
+      const extContact = document.getElementById('call-ext-contact');
+      if (extContact) extContact.value = call.extContact || '';
+      document.querySelectorAll('#call-ext-participants input[type="checkbox"]').forEach(cb => {
+        cb.checked = (call.participants || []).includes(cb.value);
+      });
+    } else {
+      document.querySelectorAll('#call-participants input[type="checkbox"]').forEach(cb => {
+        cb.checked = (call.participants || []).includes(cb.value);
+      });
+    }
+
+    window._editingCallId = callId;
+  }, 100);
+}
+
 function _callCardHtml(call, showDate) {
   const isInternal = call.type === 'internal';
   const borderColor = isInternal ? '#4F46E5' : '#06B6D4';
@@ -9203,7 +9263,10 @@ function _callCardHtml(call, showDate) {
         ${call.agenda ? `<div style="font-size:var(--text-xs);color:var(--text-secondary);margin-top:3px;">📋 ${escHtml(call.agenda)}</div>` : ''}
         ${call.meetLink ? `<a href="${escHtml(call.meetLink)}" target="_blank" style="font-size:var(--text-xs);color:#4285F4;font-weight:600;text-decoration:none;margin-top:4px;display:inline-block;">🔗 Join Google Meet</a>` : ''}
       </div>
-      ${canDelete ? `<button onclick="event.stopPropagation();_deleteCall('${call.id}')" title="Remove" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:2px;line-height:1;">✕</button>` : ''}
+      ${canDelete ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+        <button onclick="event.stopPropagation();_editCall('${call.id}')" title="Edit call" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px;line-height:1;">✏️</button>
+        <button onclick="event.stopPropagation();_confirmDeleteCall('${call.id}')" title="Delete call" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px;line-height:1;">🗑</button>
+      </div>` : ''}
     </div>
   </div>`;
 }
