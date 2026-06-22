@@ -3759,15 +3759,14 @@
         <div class="modal-section-title">Attachments &amp; Documents</div>
         <div class="attach-list" id="task-attach-list"></div>
         <div class="attach-actions">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('task-attach-file').click()">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="window.open('https://drive.google.com/drive/folders/1pE-A_XsKMmQ3Jd4bc-MnTX7GOsnaEeO4','_blank')" title="Opens Team Drive folder — upload your file there, then paste the link below">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            Upload file
+            Upload to Drive
           </button>
-          <input type="file" id="task-attach-file" style="display:none" onchange="handleTaskFileUpload(this)" multiple />
-          <input type="text" class="form-input" id="task-attach-link" placeholder="or paste a Drive / doc link and press Enter" style="flex:1;min-width:180px;" onkeydown="if(event.key==='Enter'){event.preventDefault();addTaskLinkAttachment();}" />
+          <input type="text" class="form-input" id="task-attach-link" placeholder="Paste Drive / doc link and press Enter" style="flex:1;min-width:180px;" onkeydown="if(event.key==='Enter'){event.preventDefault();addTaskLinkAttachment();}" />
           <button type="button" class="btn btn-secondary btn-sm" onclick="addTaskLinkAttachment()">Add link</button>
         </div>
-        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px;" id="task-attach-hint">Files upload to your Team OS Google Drive folder. Max ~10MB each.</div>
+        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px;" id="task-attach-hint">Upload files to Team Drive → copy link → paste above.</div>
       </div>
 
       <!-- Notes -->
@@ -4153,12 +4152,11 @@
         <div class="modal-section-title">Attachments &amp; Documents</div>
         <div class="attach-list" id="project-attach-list"></div>
         <div class="attach-actions">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('project-attach-file').click()">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="window.open('https://drive.google.com/drive/folders/1pE-A_XsKMmQ3Jd4bc-MnTX7GOsnaEeO4','_blank')" title="Opens Team Drive folder — upload your file there, then paste the link below">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            Upload file
+            Upload to Drive
           </button>
-          <input type="file" id="project-attach-file" style="display:none" onchange="handleProjectFileUpload(this)" multiple />
-          <input type="text" class="form-input" id="project-attach-link" placeholder="or paste a Drive / doc link" style="flex:1;min-width:180px;" onkeydown="if(event.key==='Enter'){event.preventDefault();addProjectLinkAttachment();}" />
+          <input type="text" class="form-input" id="project-attach-link" placeholder="Paste Drive / doc link and press Enter" style="flex:1;min-width:180px;" onkeydown="if(event.key==='Enter'){event.preventDefault();addProjectLinkAttachment();}" />
           <button type="button" class="btn btn-secondary btn-sm" onclick="addProjectLinkAttachment()">Add link</button>
         </div>
       </div>
@@ -9964,14 +9962,14 @@ function _paintBills() {
     <div class="card" style="margin-bottom:var(--space-lg);">
       <div class="card-title" style="margin-bottom:var(--space-lg);">Upload a bill / receipt</div>
 
-      <!-- Row 1: File picker -->
+      <!-- Row 1: Drive upload + link -->
       <div style="display:flex;flex-wrap:wrap;gap:var(--space-sm);align-items:center;margin-bottom:var(--space-md);">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('bill-file').click()">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="window.open('https://drive.google.com/drive/folders/1pE-A_XsKMmQ3Jd4bc-MnTX7GOsnaEeO4','_blank')" title="Upload bill to Team Drive, then paste link below">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Choose file(s)
+          Upload to Drive
         </button>
-        <input type="file" id="bill-file" style="display:none" multiple accept="image/*,application/pdf" onchange="_onBillFilePicked(this)" />
-        <span id="bill-file-label" style="font-size:var(--text-xs);color:var(--text-muted);">No file chosen</span>
+        <input type="text" id="bill-drive-link" class="form-input" placeholder="Paste Drive link to bill" style="flex:1;min-width:180px;font-size:var(--text-xs);" />
+        <span style="font-size:var(--text-xs);color:var(--text-muted);">Upload to Drive → paste link</span>
       </div>
 
       <!-- Row 2: Details grid -->
@@ -10148,8 +10146,8 @@ function _onBillFilePicked(input) {
 }
 
 function uploadBill() {
-  const files = window._billPendingFiles || [];
-  if (!files.length) { showToast({ type:'warning', title:'Choose a file first' }); return; }
+  const driveLink  = document.getElementById('bill-drive-link')?.value.trim() || '';
+  if (!driveLink) { showToast({ type:'warning', title:'Paste a Drive link', message:'Upload the bill to Drive first, then paste the link here.' }); return; }
   const vendorName = document.getElementById('bill-vendor-name')?.value.trim() || '';
   const vendor     = document.getElementById('bill-vendor')?.value.trim()      || '';
   const amount     = document.getElementById('bill-amount')?.value.trim()      || '';
@@ -10161,45 +10159,18 @@ function uploadBill() {
   const half1Date   = document.getElementById('bill-half1-date')?.value    || '';
   const half2Amount = document.getElementById('bill-half2')?.value.trim()  || '';
   const half2Date   = document.getElementById('bill-half2-date')?.value    || '';
-  const btn = document.getElementById('bill-upload-btn');
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Uploading…'; }
 
-  let remaining = files.length;
-  files.forEach(file => {
-    if (file.size > 10 * 1024 * 1024) {
-      showToast({ type:'error', title:'File too large', message: `${file.name} exceeds 10MB.` });
-      if (--remaining === 0) _finishBillUpload();
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = function() {
-      const base64 = String(reader.result).split(',')[1] || '';
-      const finalize = (url) => {
-        const bill = {
-          id: 'BILL' + Date.now() + Math.floor(Math.random()*1000),
-          name: file.name, url, vendorName, vendor, amount, company, invType,
-          paySplit, payDate, half1Amount, half1Date, half2Amount, half2Date,
-          uploadedBy: window.TeamOS.currentUser?.name || '',
-          uploadedAt: new Date().toISOString(),
-        };
-        window.DS_bills.push(bill);
-        _lsSet('iipl_bills', JSON.stringify(window.DS_bills));
-        if (_inGAS()) GAS.saveBill(bill);
-        if (--remaining === 0) _finishBillUpload();
-      };
-      if (_inGAS()) {
-        _sbUploadFile('IIPL', file.name, file.type || 'application/octet-stream', base64)
-          .then(url => {
-            if (url) finalize(url);
-            else { showToast({ type:'error', title:'Upload failed', message: file.name }); if (--remaining === 0) _finishBillUpload(); }
-          });
-      } else {
-        finalize(String(reader.result)); /* local mode: data URL */
-      }
-    };
-    reader.onerror = function() { showToast({ type:'error', title:'Could not read', message: file.name }); if (--remaining === 0) _finishBillUpload(); };
-    reader.readAsDataURL(file);
-  });
+  const bill = {
+    id: 'BILL' + Date.now() + Math.floor(Math.random()*1000),
+    name: 'Drive Link', url: driveLink, vendorName, vendor, amount, company, invType,
+    paySplit, payDate, half1Amount, half1Date, half2Amount, half2Date,
+    uploadedBy: window.TeamOS.currentUser?.name || '',
+    uploadedAt: new Date().toISOString(),
+  };
+  window.DS_bills.push(bill);
+  _lsSet('iipl_bills', JSON.stringify(window.DS_bills));
+  if (_inGAS()) GAS.saveBill(bill);
+  _finishBillUpload();
 }
 
 function _finishBillUpload() {
@@ -10210,8 +10181,7 @@ function _finishBillUpload() {
   ['bill-company','bill-inv-type'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
   const split = document.getElementById('bill-pay-split'); if (split) split.value = '100%';
   const splitRow = document.getElementById('bill-split-row'); if (splitRow) splitRow.style.display = 'none';
-  const label = document.getElementById('bill-file-label'); if (label) label.textContent = 'No file chosen';
-  const fileEl = document.getElementById('bill-file'); if (fileEl) fileEl.value = '';
+  const driveEl = document.getElementById('bill-drive-link'); if (driveEl) driveEl.value = '';
   const btn = document.getElementById('bill-upload-btn');
   if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload Bill'; }
   _paintBills();
