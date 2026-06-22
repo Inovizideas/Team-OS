@@ -6862,9 +6862,8 @@ function renderDashboard() {
       <div class="card" style="text-align:center;padding:var(--space-xl);color:var(--text-muted);font-size:var(--text-sm);">No announcements yet. Click "+ New" to broadcast to your team.</div>
     </div>` : '');
 
-  /* ── TODAY'S UPDATES (admin-only) ────────────────────────────────────────── */
+  /* ── TODAY'S UPDATES (visible to all — tasks table admin-only) ──────────── */
   const todayUpdatesHtml = (() => {
-    if (!admin) return '';
     const todayStr = _today();
     /* Check-ins today */
     const checkinRows = DS.team.map(m => {
@@ -6917,7 +6916,7 @@ function renderDashboard() {
             </table>
           </div>
         </div>
-        <!-- Tasks Updated Today -->
+        ${admin ? `<!-- Tasks Updated Today -->
         <div class="card" style="padding:0;overflow:hidden;">
           <div style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-default);font-size:var(--text-sm);font-weight:700;">✏️ Tasks Updated Today</div>
           <div class="table-wrapper" style="border:none;border-radius:0;max-height:260px;overflow-y:auto;">
@@ -6926,7 +6925,7 @@ function renderDashboard() {
               <tbody>${taskRows || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:var(--space-lg);">No task updates yet today</td></tr>'}</tbody>
             </table>
           </div>
-        </div>
+        </div>` : ''}
       </div>
     </div>
 
