@@ -9109,6 +9109,7 @@ function _submitCall() {
   if (!DS.calls) DS.calls = [];
   DS.calls.push(call);
   _saveLocal();
+  if (_inGAS()) GAS.saveCall(call);
   closeModal('modal-call-overlay');
 
   const timeStr = _formatCallTime(time);
@@ -9164,6 +9165,7 @@ function _formatCallTime(t) {
 function _deleteCall(callId) {
   DS.calls = (DS.calls || []).filter(c => c.id !== callId);
   _saveLocal();
+  if (_inGAS()) GAS.deleteCall(callId);
   showToast({ type: 'warning', title: 'Call removed' });
   renderAttendancePage();
   if (window.TeamOS.currentPage === 'dashboard') renderDashboard();
@@ -11612,7 +11614,7 @@ const GAS = {
     const sb = _getSB(); if (!sb) return false;
     try {
       const today = new Date().toISOString().slice(0,10);
-      const [tasksRes, projRes, notifRes, vendRes, campRes, contRes, billRes, checkinRes, attRes] = await Promise.all([
+      const [tasksRes, projRes, notifRes, vendRes, campRes, contRes, billRes, checkinRes, attRes, callsRes] = await Promise.all([
         sb.from('tasks').select('data'),
         sb.from('projects').select('data'),
         sb.from('notifications').select('*').eq('user_name', userName).order('created_at', { ascending: false }).limit(50),
@@ -11622,9 +11624,11 @@ const GAS = {
         sb.from('bills').select('data').order('created_at', { ascending: false }),
         sb.from('checkins').select('*').eq('date', today),
         sb.from('attendance').select('*'),
+        sb.from('calls').select('data'),
       ]);
       if (tasksRes.data) DS.tasks    = tasksRes.data.map(r => r.data);
       if (projRes.data)  DS.projects = projRes.data.map(r => r.data);
+      if (callsRes?.data) DS.calls   = callsRes.data.map(r => r.data);
       if (vendRes.data)  window.DS_vendors   = vendRes.data.map(r => r.data);
       if (campRes.data)  window.DS_campaigns = campRes.data.map(r => r.data);
       if (contRes.data)  window.DS_content   = contRes.data.map(r => r.data);
@@ -11688,6 +11692,18 @@ const GAS = {
     const sb = _getSB(); if (!sb) return;
     try { await sb.from('projects').delete().eq('id', id); }
     catch(e) { console.warn('[SB.deleteProject]', e); }
+  },
+
+  async saveCall(call) {
+    const sb = _getSB(); if (!sb || !call?.id) return;
+    try { await sb.from('calls').upsert({ id: call.id, data: call, created_at: call.createdAt || new Date().toISOString() }); }
+    catch(e) { console.warn('[SB.saveCall]', e); }
+  },
+
+  async deleteCall(id) {
+    const sb = _getSB(); if (!sb) return;
+    try { await sb.from('calls').delete().eq('id', id); }
+    catch(e) { console.warn('[SB.deleteCall]', e); }
   },
 
   async saveVendor(v) {
