@@ -13461,6 +13461,65 @@ document.addEventListener('teamos:ready', () => {
     });
   }
   setInterval(_checkRecurringReminders, 60000);
+
+  /* ── CALL REMINDER — 10 min before, with alarm sound ──────────────── */
+  const _callAlarmFired = new Set();
+
+  function _playAlarmSound() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const notes = [880, 1100, 880, 1100, 880];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        gain.gain.value = 0.3;
+        osc.start(ctx.currentTime + i * 0.25);
+        osc.stop(ctx.currentTime + i * 0.25 + 0.2);
+      });
+    } catch(e) {}
+  }
+
+  function _checkCallReminders() {
+    const uid = window.TeamOS?.currentUser?.initials || '';
+    if (!uid) return;
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+
+    (DS.calls || []).forEach(call => {
+      if (call.date !== today || !call.time) return;
+      const participants = call.participants || [];
+      if (!participants.includes(uid)) return;
+
+      const [h, m] = call.time.split(':').map(Number);
+      const callMin = h * 60 + m;
+      const diff = callMin - nowMin;
+
+      if (diff >= 9 && diff <= 10 && !_callAlarmFired.has(call.id)) {
+        _callAlarmFired.add(call.id);
+        const timeStr = typeof _formatCallTime === 'function' ? _formatCallTime(call.time) : call.time;
+        const title = call.type === 'internal'
+          ? (call.participants || []).map(p => (DS.team||[]).find(m=>m.id===p)?.name?.split(' ')[0]||p).join(', ')
+          : (call.extContact || 'External Call');
+
+        _playAlarmSound();
+
+        pushNotif('📞', `<strong>Call in 10 minutes!</strong> ${escHtml(title)} at ${timeStr}${call.meetLink ? ' — <a href="'+escHtml(call.meetLink)+'" target="_blank">Join Meet</a>' : ''}`, null);
+
+        _browserPush(
+          `📞 Call in 10 min: ${title}`,
+          `${call.agenda || 'Meeting'} at ${timeStr}${call.meetLink ? ' — Meet link attached' : ''}`,
+          'iipl-call-' + call.id
+        );
+      }
+    });
+  }
+  setInterval(_checkCallReminders, 30000);
+  setTimeout(_checkCallReminders, 5000);
 });
 
 /* ── REORDER TASKS / PROJECTS ─────────────────────────────────────────────── */
