@@ -7069,6 +7069,43 @@ function renderDashboard() {
       ${_statCard(admin ? 'Active Projects' : 'My Projects', activeProjs, '#7C3AED', `<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>`, 'rgba(124,58,237,0.10)', "navigateTo('brands')")}
     </div>
 
+    <!-- Today's Focus -->
+    ${(() => {
+      const todayStr = _today();
+      const myDueToday = (admin ? DS.tasks : myTasks).filter(t => t.due === todayStr && t.status !== 'Done' && t.status !== 'Cancelled');
+      const tomorrowText = window._myEodYesterday || '';
+      if (!myDueToday.length && !tomorrowText) return '';
+      return `
+      <div style="margin-bottom:var(--space-xl);">
+        <div class="section-header">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Today's Focus
+          </div>
+        </div>
+        ${tomorrowText ? `
+        <div class="card" style="margin-bottom:var(--space-md);border-left:3px solid var(--brand-warning);background:rgba(245,158,11,0.04);">
+          <div style="font-size:var(--text-xs);font-weight:700;color:var(--brand-warning);text-transform:uppercase;margin-bottom:6px;">📋 Your priorities (from yesterday's EOD)</div>
+          <div style="font-size:var(--text-sm);color:var(--text-primary);white-space:pre-wrap;line-height:1.6;">${escHtml(tomorrowText)}</div>
+        </div>` : ''}
+        ${myDueToday.length ? `
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div style="padding:var(--space-sm) var(--space-lg);border-bottom:1px solid var(--border-default);font-size:var(--text-xs);font-weight:700;color:var(--text-secondary);text-transform:uppercase;">📌 Tasks due today (${myDueToday.length})</div>
+          <div style="max-height:250px;overflow-y:auto;">
+            ${myDueToday.map(t => `
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border-default);cursor:pointer;" onclick="openTaskDrawer('${t.id}')">
+                <div style="width:8px;height:8px;border-radius:50%;background:${{Blocked:'#EF4444','In Progress':'#3B82F6','In Review':'#F59E0B','To Do':'#94A3B8','Changes Requested':'#EA580C'}[t.status]||'#94A3B8'};flex-shrink:0;"></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(t.title)}</div>
+                </div>
+                ${_statusBadge(t.status)}
+                ${_priorityBadge(t.priority)}
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+      </div>`;
+    })()}
+
     <!-- Needs Your Action (approval queue) -->
     ${(() => {
       const pending = DS.tasks.filter(t => {
@@ -7294,7 +7331,7 @@ function quickCreateTask() {
     assignees: [document.getElementById('qc-assignee')?.value || 'NG'],
     status:    'To Do',
     priority:  'Medium',
-    due:       '',
+    due:       _today(),
     attachments: [],
     createdAt: new Date().toISOString(),
     _isNew:    true,
@@ -11773,6 +11810,13 @@ const GAS = {
         NOTIFS.items.sort((a,b) => new Date(b._ts||0) - new Date(a._ts||0));
         if (typeof _updateNotifBadge === 'function') _updateNotifBadge();
       }
+      /* Fetch yesterday's EOD for "Today's Focus" on dashboard */
+      try {
+        const _yest = new Date(new Date().getTime() - 86400000).toISOString().slice(0,10);
+        const eodRes = await sb.from('eod_reports').select('tomorrow').eq('user_name', userName).eq('date', _yest).eq('is_draft', false).limit(1);
+        window._myEodYesterday = eodRes?.data?.[0]?.tomorrow || '';
+      } catch(e) {}
+
       _saveLocal();
       return true;
     } catch(e) { console.warn('[SB.syncAll]', e); return false; }
