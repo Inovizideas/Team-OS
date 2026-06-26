@@ -7062,11 +7062,11 @@ function renderDashboard() {
 
     <!-- Stat strip -->
     <div class="dash-stats">
-      ${_statCard('My Open Tasks', openTasks, '#F0B429', `<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>`, 'rgba(240,180,41,0.10)')}
-      ${_statCard('Done', doneTasks, '#10B981', `<polyline points="20 6 9 17 4 12"/>`, 'rgba(16,185,129,0.10)')}
-      ${_statCard('Blocked', blockedTasks, '#EF4444', `<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>`, 'rgba(239,68,68,0.10)')}
-      ${_statCard('Overdue', overdueTasks, '#F59E0B', `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`, 'rgba(245,158,11,0.10)')}
-      ${_statCard(admin ? 'Active Projects' : 'My Projects', activeProjs, '#7C3AED', `<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>`, 'rgba(124,58,237,0.10)')}
+      ${_statCard('My Open Tasks', openTasks, '#F0B429', `<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>`, 'rgba(240,180,41,0.10)', "navigateTo('tasks')")}
+      ${_statCard('Done', doneTasks, '#10B981', `<polyline points="20 6 9 17 4 12"/>`, 'rgba(16,185,129,0.10)', "navigateTo('tasks');setTimeout(()=>{const s=document.getElementById('tasks-filter-status');if(s){s.value='Done';filterTasks();}},100)")}
+      ${_statCard('Blocked', blockedTasks, '#EF4444', `<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>`, 'rgba(239,68,68,0.10)', "navigateTo('tasks');setTimeout(()=>{const s=document.getElementById('tasks-filter-status');if(s){s.value='Blocked';filterTasks();}},100)")}
+      ${_statCard('Overdue', overdueTasks, '#F59E0B', `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`, 'rgba(245,158,11,0.10)', "navigateTo('tasks');setTimeout(()=>{const s=document.getElementById('tasks-filter-status');if(s){s.value='To Do';filterTasks();}},100)")}
+      ${_statCard(admin ? 'Active Projects' : 'My Projects', activeProjs, '#7C3AED', `<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>`, 'rgba(124,58,237,0.10)', "navigateTo('brands')")}
     </div>
 
     <!-- Needs Your Action (approval queue) -->
@@ -7198,9 +7198,9 @@ function renderDashboard() {
   `;
 }
 
-function _statCard(label, val, color, pathSvg, bg) {
+function _statCard(label, val, color, pathSvg, bg, onclick) {
   return `
-    <div class="dash-stat">
+    <div class="dash-stat" ${onclick ? `onclick="${onclick}" style="cursor:pointer;" title="Click to view"` : ''}>
       <div class="dash-stat-icon" style="background:${bg};">
         <svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${pathSvg}</svg>
       </div>
