@@ -13395,10 +13395,10 @@ function _renderEodCard(r) {
         <span style="font-size:var(--text-xs);color:var(--text-muted);">${dateStr} ${r.mood||''}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-sm);">
-        <div><div style="font-size:10px;font-weight:700;color:var(--brand-success);text-transform:uppercase;margin-bottom:3px;">✅ Completed</div><div style="font-size:var(--text-sm);">${escHtml(r.completed||'—')}</div></div>
-        <div><div style="font-size:10px;font-weight:700;color:var(--brand-primary);text-transform:uppercase;margin-bottom:3px;">🔄 In Progress</div><div style="font-size:var(--text-sm);">${escHtml(r.in_progress||r.inProgress||'—')}</div></div>
-        ${blockers.length ? `<div><div style="font-size:10px;font-weight:700;color:var(--brand-danger);text-transform:uppercase;margin-bottom:3px;">🚫 Blockers</div><div style="font-size:var(--text-sm);">${blockers.map(b=>escHtml(b)).join(', ')}</div></div>` : ''}
-        ${(r.tomorrow) ? `<div><div style="font-size:10px;font-weight:700;color:var(--brand-warning);text-transform:uppercase;margin-bottom:3px;">📅 Tomorrow</div><div style="font-size:var(--text-sm);">${escHtml(r.tomorrow)}</div></div>` : ''}
+        <div><div style="font-size:10px;font-weight:700;color:var(--brand-success);text-transform:uppercase;margin-bottom:3px;">✅ Completed</div><div style="font-size:var(--text-sm);white-space:pre-wrap;line-height:1.6;">${escHtml(r.completed||'—')}</div></div>
+        <div><div style="font-size:10px;font-weight:700;color:var(--brand-primary);text-transform:uppercase;margin-bottom:3px;">🔄 In Progress</div><div style="font-size:var(--text-sm);white-space:pre-wrap;line-height:1.6;">${escHtml(r.in_progress||r.inProgress||'—')}</div></div>
+        ${blockers.length ? `<div><div style="font-size:10px;font-weight:700;color:var(--brand-danger);text-transform:uppercase;margin-bottom:3px;">🚫 Blockers</div><div style="font-size:var(--text-sm);white-space:pre-wrap;line-height:1.6;">${blockers.map(b=>escHtml(b)).join('\n')}</div></div>` : ''}
+        ${(r.tomorrow) ? `<div><div style="font-size:10px;font-weight:700;color:var(--brand-warning);text-transform:uppercase;margin-bottom:3px;">📅 Tomorrow</div><div style="font-size:var(--text-sm);white-space:pre-wrap;line-height:1.6;">${escHtml(r.tomorrow)}</div></div>` : ''}
       </div>
     </div>`;
 }
