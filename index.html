@@ -7710,7 +7710,7 @@ function filterTasks() {
     if (q && !t.title.toLowerCase().includes(q)) return false;
     if (status && t.status !== status) return false;
     if (project && t.project !== project && t.brand !== project) return false;
-    if (assignee && !t.assignees?.includes(assignee)) return false;
+    if (assignee && !t.assignees?.includes(assignee) && t.owner !== assignee) return false;
     return true;
   });
 
