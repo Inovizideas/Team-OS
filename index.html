@@ -10672,8 +10672,9 @@ document.addEventListener('teamos:saveTask', function(e) {
   else if (p==='tasks') { if (document.getElementById('tasks-search')) filterTasks(); else renderTasksPage(); }
   else if (p==='kanban') renderKanbanPage();
   else if (p==='mytasks') renderMyTasksPage();
-  /* Update nav badge */
-  const open  = DS.tasks.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length;
+  /* Update nav badge — scoped to user's tasks */
+  const _badgeTasks = typeof _scopedTasks === 'function' ? _scopedTasks() : DS.tasks;
+  const open  = _badgeTasks.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length;
   const badge = document.getElementById('nav-badge-tasks');
   if (badge) badge.textContent = open;
   _syncMobileBadges();
@@ -11023,8 +11024,9 @@ if (typeof escHtml === 'undefined') {
 /*  15. INIT  */
 document.addEventListener('teamos:ready', function() {
   ensureExtraPages();
-  // Update nav task badge
-  const open = DS.tasks.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length;
+  // Update nav task badge — scoped
+  const _rdyTasks = typeof _scopedTasks === 'function' ? _scopedTasks() : DS.tasks;
+  const open = _rdyTasks.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length;
   const badge = document.getElementById('nav-badge-tasks');
   if (badge) badge.textContent = open;
   if (typeof _syncMobileBadges === 'function') _syncMobileBadges();
@@ -11036,7 +11038,7 @@ document.addEventListener('teamos:ready', function() {
     try { _renderSidebarProjects(); } catch(e) { console.warn('sidebarProjects', e); }
     try { if (typeof _updateWatchBadge === 'function') _updateWatchBadge(); } catch(e){}
     const b = document.getElementById('nav-badge-tasks');
-    if (b) try { b.textContent = DS.tasks.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length; } catch(e){}
+    if (b) try { const _st = typeof _scopedTasks==='function'?_scopedTasks():DS.tasks; b.textContent = _st.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length; } catch(e){}
   }
 
   /* Render immediately with whatever we have (cached/empty) so the UI is never
@@ -11142,8 +11144,9 @@ document.addEventListener('teamos:ready', function() {
         else if (pg === 'reports')    _try(renderReportsPage);
         else if (pg === 'admin')      { if (idle) _try(renderAdminPage); }
 
-        /* Update badges — always safe, no visible disruption */
-        const open = DS.tasks.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length;
+        /* Update badges — scoped to user's tasks */
+        const _syncBadgeTasks = typeof _scopedTasks==='function'?_scopedTasks():DS.tasks;
+        const open = _syncBadgeTasks.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length;
         const badge = document.getElementById('nav-badge-tasks');
         if (badge) badge.textContent = open;
         if (typeof _syncMobileBadges === 'function') _syncMobileBadges();
