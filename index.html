@@ -7694,9 +7694,21 @@ function _scopedTasks() {
   return DS.tasks.filter(t => {
     const assignees = (t.assignees || []);
     const coDeps    = (t.coDep || '').split(',').map(s => s.trim());
+    const approvers = (t.approvers || []);
+    const watchers  = (t.watchers || []);
+    const comments  = (t.comments || []).map(c => c.user || '');
+    const steps     = (t.subtasks || []).map(s => s.assignee || '');
+    const descMention = (t.description || '').includes('@' + uid) || (t.description || '').includes(name);
+    const commentMention = (t.comments || []).some(c => (c.text || '').includes('@' + uid) || (c.text || '').includes(name));
     return isMe(t.owner) ||
            assignees.some(isMe) ||
-           coDeps.some(isMe);
+           coDeps.some(isMe) ||
+           approvers.includes(uid) ||
+           watchers.includes(uid) ||
+           comments.includes(uid) ||
+           steps.some(s => s === uid) ||
+           descMention ||
+           commentMention;
   });
 }
 
