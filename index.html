@@ -12026,9 +12026,18 @@ const GAS = {
       ]);
       if (tasksRes.data) DS.tasks    = tasksRes.data.map(r => r.data);
       if (projRes.data)  DS.projects = projRes.data.map(r => r.data);
-      if (callsRes?.data) DS.calls   = callsRes.data.map(r => r.data);
-      if (annRes?.data) DS.announcements = annRes.data.map(r => r.data);
-      if (grvRes?.data) DS.grievances = grvRes.data.map(r => r.data);
+      /* Merge Supabase data with local — push local-only items to Supabase */
+      function _mergeAndPush(sbRes, localArr, saveFn) {
+        if (!sbRes?.data) return localArr || [];
+        const sbItems = sbRes.data.map(r => r.data);
+        const sbIds = new Set(sbItems.map(i => i.id));
+        const localOnly = (localArr || []).filter(i => i.id && !sbIds.has(i.id));
+        if (localOnly.length && saveFn) localOnly.forEach(i => saveFn(i));
+        return [...sbItems, ...localOnly];
+      }
+      DS.calls = _mergeAndPush(callsRes, DS.calls, typeof GAS !== 'undefined' ? GAS.saveCall : null);
+      DS.announcements = _mergeAndPush(annRes, DS.announcements, typeof GAS !== 'undefined' ? GAS.saveAnnouncement : null);
+      DS.grievances = _mergeAndPush(grvRes, DS.grievances, typeof GAS !== 'undefined' ? GAS.saveGrievance : null);
       if (vendRes.data)  window.DS_vendors   = vendRes.data.map(r => r.data);
       if (campRes.data)  window.DS_campaigns = campRes.data.map(r => r.data);
       if (contRes.data)  window.DS_content   = contRes.data.map(r => r.data);
