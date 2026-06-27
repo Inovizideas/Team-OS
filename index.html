@@ -1859,6 +1859,16 @@
       Calls
     </div>
 
+    <div class="nav-item" data-page="huddle" onclick="navigateTo('huddle')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      Weekly Huddle
+    </div>
+
     <div class="nav-item" data-page="team" onclick="navigateTo('team')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -2467,6 +2477,16 @@
     Calls
   </div>
 
+  <div class="nav-item" data-page="huddle" onclick="navigateTo('huddle'); closeMobileNav();">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+    Weekly Huddle
+  </div>
+
   <div class="nav-item" data-page="team" onclick="navigateTo('team'); closeMobileNav();">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -2838,6 +2858,7 @@
     misctasks:  'Misc Tasks',
     recurring:  'Recurring Tasks',
     calls:      'Calls',
+    huddle:     'Weekly Huddle',
   };
 
   function navigateTo(page) {
@@ -6606,6 +6627,7 @@ const DS = {
   attendance:  {},
   travelPlans: {},
   calls: [],
+  grievances: [],
   announcements: [],
   activity:    [],
   settings: {
@@ -6634,6 +6656,7 @@ const LS = {
   CHECKINS:      'iipl_checkins',
   TRAVEL:        'iipl_travel',
   CALLS:         'iipl_calls',
+  GRIEVANCES:    'iipl_grievances',
   ANNOUNCEMENTS: 'iipl_announcements',
   VENDORS:       'iipl_vendors',
   CAMPAIGNS:     'iipl_campaigns',
@@ -6649,6 +6672,7 @@ function _saveLocal() {
     _lsSet(LS.CHECKINS,      JSON.stringify(DS.checkins || {}));
     _lsSet(LS.TRAVEL,        JSON.stringify(DS.travelPlans || {}));
     _lsSet(LS.CALLS,         JSON.stringify(DS.calls || []));
+    _lsSet(LS.GRIEVANCES,    JSON.stringify(DS.grievances || []));
     _lsSet(LS.ANNOUNCEMENTS, JSON.stringify(DS.announcements));
     _lsSet(LS.ACTIVITY,      JSON.stringify(DS.activity.slice(0,50)));
     if (window.DS_vendors)   _lsSet(LS.VENDORS,   JSON.stringify(window.DS_vendors));
@@ -6676,6 +6700,9 @@ function _loadLocal() {
 
     const calls = _lsGet(LS.CALLS);
     if (calls) DS.calls = JSON.parse(calls);
+
+    const grievances = _lsGet(LS.GRIEVANCES);
+    if (grievances) DS.grievances = JSON.parse(grievances);
 
     const announcements = _lsGet(LS.ANNOUNCEMENTS);
     if (announcements) DS.announcements = JSON.parse(announcements);
@@ -6731,7 +6758,7 @@ document.addEventListener('teamos:navigate', function(e) {
 function ensureExtraPages() {
   const mc = document.getElementById('main-content');
   if (!mc) return;
-  ['mytasks','watching','attendance','admin','eod','misctasks','recurring','calls'].forEach(id => {
+  ['mytasks','watching','attendance','admin','eod','misctasks','recurring','calls','huddle'].forEach(id => {
     if (!document.getElementById('page-' + id)) {
       const sec = document.createElement('section');
       sec.className = 'page';
@@ -8089,6 +8116,7 @@ document.addEventListener('teamos:navigate', function(e) {
   if (e.detail.page === 'misctasks') { ensureExtraPages(); setTimeout(renderMiscTasksPage, 50); }
   if (e.detail.page === 'recurring') { ensureExtraPages(); setTimeout(renderRecurringPage, 50); }
   if (e.detail.page === 'calls')     { ensureExtraPages(); setTimeout(renderCallsPage, 50); }
+  if (e.detail.page === 'huddle')    { ensureExtraPages(); setTimeout(renderHuddlePage, 50); }
 });
 
 /*  WATCHING PAGE  */
@@ -9470,6 +9498,210 @@ function renderCallsPage() {
   `;
 }
 
+/* ── WEEKLY HUDDLE PAGE ───────────────────────────────────────────────────── */
+
+function _getWeekId(date) {
+  const d = new Date(date || new Date());
+  const sat = new Date(d); sat.setDate(d.getDate() - d.getDay() + 6);
+  return sat.toISOString().slice(0, 10);
+}
+
+function _isSubmissionLocked() {
+  const now = new Date();
+  const day = now.getDay();
+  const hour = now.getHours();
+  return (day === 6) || (day === 5 && hour >= 18);
+}
+
+function renderHuddlePage() {
+  const el = document.getElementById('page-huddle');
+  if (!el) return;
+  const admin = isAdmin();
+  const uid = window.TeamOS?.currentUser?.initials || '';
+  const weekId = _getWeekId();
+  const locked = _isSubmissionLocked();
+  const allGrievances = DS.grievances || [];
+  const thisWeek = allGrievances.filter(g => g.weekId === weekId);
+  const internal = thisWeek.filter(g => g.type === 'internal');
+  const external = thisWeek.filter(g => g.type === 'external');
+  const pastWeeks = [...new Set(allGrievances.map(g => g.weekId).filter(w => w !== weekId))].sort().reverse();
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2>Weekly Huddle</h2>
+        <p>Submit work blockers & external issues. Discussed every Saturday at 11:30 AM.</p>
+      </div>
+    </div>
+
+    <!-- Submit Form -->
+    <div class="card" style="margin-bottom:var(--space-xl);${locked ? 'opacity:0.6;pointer-events:none;' : ''}">
+      <div style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);margin-bottom:12px;">
+        ${locked ? '🔒 Submissions locked for this week\'s huddle' : '📝 Submit a Grievance / Blocker'}
+      </div>
+      ${!locked ? `
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button id="grv-type-internal" onclick="_grvTypeToggle('internal')" style="flex:1;padding:8px;border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:700;cursor:pointer;border:2px solid var(--brand-primary);background:rgba(240,180,41,0.12);color:var(--brand-primary);">
+          🏢 Internal (work stuck, process)
+        </button>
+        <button id="grv-type-external" onclick="_grvTypeToggle('external')" style="flex:1;padding:8px;border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:700;cursor:pointer;border:2px solid var(--border-default);background:var(--bg-elevated);color:var(--text-secondary);">
+          🤝 External (vendor, client)
+        </button>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">What happened? *</label>
+        <textarea id="grv-description" class="form-control" rows="3" placeholder="Describe the issue — what got stuck, why, and how it affected work" style="font-size:var(--text-sm);resize:none;"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-group">
+          <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Related Task / Project</label>
+          <input id="grv-project" type="text" class="form-control" placeholder="e.g. WOTM Launch, Airport Tote" style="font-size:var(--text-sm);">
+        </div>
+        <div class="form-group">
+          <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Your Suggested Solution</label>
+          <input id="grv-solution" type="text" class="form-control" placeholder="Optional — what could fix this?" style="font-size:var(--text-sm);">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="_submitGrievance()" style="width:100%;padding:10px;font-weight:700;">Submit</button>
+      ` : '<div style="font-size:var(--text-xs);color:var(--text-muted);">Submissions close Friday 6 PM. Next window opens after Saturday\'s huddle.</div>'}
+    </div>
+
+    <!-- This Week's Submissions -->
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--space-xl);">
+      <div style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-default);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:var(--text-sm);font-weight:700;">📋 This Week — Saturday ${weekId}</span>
+        <span style="font-size:var(--text-xs);color:var(--text-muted);">${thisWeek.length} submission${thisWeek.length!==1?'s':''}</span>
+      </div>
+      <div style="padding:var(--space-md);">
+        ${internal.length ? `<div style="font-size:var(--text-xs);font-weight:700;color:var(--brand-primary);text-transform:uppercase;margin-bottom:8px;">🏢 Internal (${internal.length})</div>
+        ${internal.map(g => _grievanceCardHtml(g, admin)).join('')}` : ''}
+        ${external.length ? `<div style="font-size:var(--text-xs);font-weight:700;color:#06B6D4;text-transform:uppercase;margin:${internal.length?'12px':'0'} 0 8px;">🤝 External (${external.length})</div>
+        ${external.map(g => _grievanceCardHtml(g, admin)).join('')}` : ''}
+        ${!thisWeek.length ? '<div style="text-align:center;padding:var(--space-lg);color:var(--text-muted);font-size:var(--text-sm);">No submissions yet for this week</div>' : ''}
+      </div>
+    </div>
+
+    <!-- Past Weeks -->
+    ${pastWeeks.length ? pastWeeks.slice(0, 4).map(wk => {
+      const wkItems = allGrievances.filter(g => g.weekId === wk);
+      const wkInt = wkItems.filter(g => g.type === 'internal');
+      const wkExt = wkItems.filter(g => g.type === 'external');
+      return `
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--space-md);opacity:0.8;">
+        <div style="padding:var(--space-sm) var(--space-lg);border-bottom:1px solid var(--border-default);font-size:var(--text-xs);font-weight:700;color:var(--text-muted);">
+          📁 Week of ${wk} — ${wkItems.length} item${wkItems.length!==1?'s':''}
+        </div>
+        <div style="padding:var(--space-sm) var(--space-md);">
+          ${wkInt.map(g => _grievanceCardHtml(g, admin)).join('')}
+          ${wkExt.map(g => _grievanceCardHtml(g, admin)).join('')}
+        </div>
+      </div>`;
+    }).join('') : ''}
+  `;
+
+  window._grvType = 'internal';
+}
+
+function _grvTypeToggle(type) {
+  window._grvType = type;
+  const intBtn = document.getElementById('grv-type-internal');
+  const extBtn = document.getElementById('grv-type-external');
+  if (intBtn) { intBtn.style.borderColor = type==='internal'?'var(--brand-primary)':'var(--border-default)'; intBtn.style.background = type==='internal'?'rgba(240,180,41,0.12)':'var(--bg-elevated)'; intBtn.style.color = type==='internal'?'var(--brand-primary)':'var(--text-secondary)'; }
+  if (extBtn) { extBtn.style.borderColor = type==='external'?'var(--brand-primary)':'var(--border-default)'; extBtn.style.background = type==='external'?'rgba(240,180,41,0.12)':'var(--bg-elevated)'; extBtn.style.color = type==='external'?'var(--brand-primary)':'var(--text-secondary)'; }
+}
+
+function _submitGrievance() {
+  const desc = document.getElementById('grv-description')?.value.trim();
+  if (!desc) { showToast({ type:'warning', title:'Required', message:'Please describe the issue.' }); return; }
+  const g = {
+    id: 'grv_' + Date.now(),
+    type: window._grvType || 'internal',
+    description: desc,
+    project: document.getElementById('grv-project')?.value.trim() || '',
+    suggestedSolution: document.getElementById('grv-solution')?.value.trim() || '',
+    submittedBy: window.TeamOS?.currentUser?.initials || '',
+    submitterName: window.TeamOS?.currentUser?.name || '',
+    weekId: _getWeekId(),
+    status: 'open',
+    resolution: '',
+    createdAt: new Date().toISOString(),
+  };
+  if (!DS.grievances) DS.grievances = [];
+  DS.grievances.push(g);
+  _saveLocal();
+  if (_inGAS()) GAS.saveGrievance(g);
+  showToast({ type:'success', title:'Submitted', message:'Your grievance has been recorded for Saturday\'s huddle.' });
+  renderHuddlePage();
+}
+
+function _resolveGrievance(id) {
+  const g = (DS.grievances || []).find(x => x.id === id);
+  if (!g) return;
+  const note = prompt('Resolution / action taken:');
+  if (note === null) return;
+  g.status = 'resolved';
+  g.resolution = note;
+  g.resolvedBy = window.TeamOS?.currentUser?.initials || '';
+  g.resolvedAt = new Date().toISOString();
+  _saveLocal();
+  if (_inGAS()) GAS.saveGrievance(g);
+  showToast({ type:'success', title:'Marked resolved' });
+  renderHuddlePage();
+}
+
+function _deleteGrievance(id) {
+  if (!isAdmin()) return;
+  DS.grievances = (DS.grievances || []).filter(x => x.id !== id);
+  _saveLocal();
+  if (_inGAS()) GAS.deleteGrievance(id);
+  renderHuddlePage();
+}
+
+function _grievanceCardHtml(g, admin) {
+  const mem = TEAM_MEMBERS.find(m => m.id === g.submittedBy);
+  const isResolved = g.status === 'resolved';
+  const borderColor = g.type === 'internal' ? '#F0B429' : '#06B6D4';
+  return `<div style="padding:10px 14px;background:${isResolved ? 'rgba(16,185,129,0.04)' : 'var(--bg-elevated)'};border-left:3px solid ${isResolved ? '#10B981' : borderColor};border-radius:0 var(--radius-md) var(--radius-md) 0;margin-bottom:8px;${isResolved?'opacity:0.7;':''}">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          ${mem ? `<div style="width:20px;height:20px;border-radius:50%;background:${mem.color};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:white;">${mem.initials}</div>` : ''}
+          <span style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);">${g.submitterName || g.submittedBy}</span>
+          ${isResolved ? '<span style="font-size:9px;padding:1px 6px;border-radius:var(--radius-full);background:rgba(16,185,129,0.12);color:#10B981;font-weight:700;">RESOLVED</span>' : '<span style="font-size:9px;padding:1px 6px;border-radius:var(--radius-full);background:rgba(245,158,11,0.12);color:#F59E0B;font-weight:700;">OPEN</span>'}
+        </div>
+        <div style="font-size:var(--text-sm);color:var(--text-primary);white-space:pre-wrap;line-height:1.5;${isResolved?'text-decoration:line-through;':''}}">${escHtml(g.description)}</div>
+        ${g.project ? `<div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px;">📁 ${escHtml(g.project)}</div>` : ''}
+        ${g.suggestedSolution ? `<div style="font-size:var(--text-xs);color:var(--brand-success);margin-top:4px;">💡 ${escHtml(g.suggestedSolution)}</div>` : ''}
+        ${g.resolution ? `<div style="font-size:var(--text-xs);color:#10B981;margin-top:4px;font-weight:600;">✅ ${escHtml(g.resolution)}</div>` : ''}
+      </div>
+      ${admin ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+        ${!isResolved ? `<button onclick="_resolveGrievance('${g.id}')" title="Mark resolved" style="background:none;border:none;cursor:pointer;color:var(--brand-success);font-size:12px;padding:2px;">✅</button>` : ''}
+        <button onclick="_deleteGrievance('${g.id}')" title="Delete" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px;">🗑</button>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+/* ── FRIDAY 12:30 PM GRIEVANCE REMINDER ─────────────────────────────────── */
+document.addEventListener('teamos:ready', () => {
+  let _huddleReminderFired = false;
+  setInterval(() => {
+    if (_huddleReminderFired) return;
+    const now = new Date();
+    const day = now.getDay();
+    const hour = now.getHours();
+    const min = now.getMinutes();
+    if (day === 5 && hour === 12 && min >= 30 && min <= 31) {
+      _huddleReminderFired = true;
+      const uid = window.TeamOS?.currentUser?.initials || '';
+      pushNotif('📋', '<strong>Weekly Huddle Reminder!</strong> Submit your grievances & blockers before 6 PM today. Saturday huddle at 11:30 AM.', null);
+      if (typeof _browserPush === 'function') {
+        _browserPush('📋 Weekly Huddle Reminder', 'Submit your grievances & blockers before 6 PM. Saturday huddle at 11:30 AM.', 'iipl-huddle-reminder');
+      }
+    }
+  }, 30000);
+});
+
 function exportAttendance() {
   const today   = new Date();
   const year    = today.getFullYear();
@@ -10812,6 +11044,7 @@ function _routeTaskDone(t) {
   else if (p === 'misctasks') renderMiscTasksPage && renderMiscTasksPage();
   else if (p === 'recurring') renderRecurringPage && renderRecurringPage();
   else if (p === 'calls') renderCallsPage && renderCallsPage();
+  else if (p === 'huddle') renderHuddlePage && renderHuddlePage();
   if (window._drawerTaskId === t.id) openTaskDrawer(t.id);
 }
 
@@ -10864,6 +11097,7 @@ function approveTask(taskId) {
   else if (p === 'misctasks') renderMiscTasksPage && renderMiscTasksPage();
   else if (p === 'recurring') renderRecurringPage && renderRecurringPage();
   else if (p === 'calls') renderCallsPage && renderCallsPage();
+  else if (p === 'huddle') renderHuddlePage && renderHuddlePage();
   if (window._drawerTaskId === taskId) openTaskDrawer(taskId);
 }
 
@@ -11058,6 +11292,7 @@ document.addEventListener('teamos:ready', function() {
       else if (pg === 'misctasks')  _try(renderMiscTasksPage);
       else if (pg === 'recurring')  _try(renderRecurringPage);
       else if (pg === 'calls')      _try(renderCallsPage);
+      else if (pg === 'huddle')     _try(renderHuddlePage);
       if (ok) {
         showToast({ type:'success', title:'✓ Synced', message: DS.tasks.length + ' tasks loaded from Supabase.', duration:2500 });
       } else {
@@ -11133,6 +11368,7 @@ document.addEventListener('teamos:ready', function() {
         else if (pg === 'misctasks')  _try(renderMiscTasksPage);
         else if (pg === 'recurring')  _try(renderRecurringPage);
         else if (pg === 'calls')      _try(renderCallsPage);
+      else if (pg === 'huddle')     _try(renderHuddlePage);
         else if (pg === 'attendance') _try(renderAttendancePage);
         else if (pg === 'team')       _try(renderTeamPage);
         else if (pg === 'brands')     _try(renderProjectsPage);
@@ -11761,7 +11997,7 @@ const GAS = {
     const sb = _getSB(); if (!sb) return false;
     try {
       const today = new Date().toISOString().slice(0,10);
-      const [tasksRes, projRes, notifRes, vendRes, campRes, contRes, billRes, checkinRes, attRes, callsRes, annRes] = await Promise.all([
+      const [tasksRes, projRes, notifRes, vendRes, campRes, contRes, billRes, checkinRes, attRes, callsRes, annRes, grvRes] = await Promise.all([
         sb.from('tasks').select('data'),
         sb.from('projects').select('data'),
         sb.from('notifications').select('*').eq('user_name', userName).order('created_at', { ascending: false }).limit(50),
@@ -11773,11 +12009,13 @@ const GAS = {
         sb.from('attendance').select('*'),
         sb.from('calls').select('data'),
         sb.from('announcements').select('data'),
+        sb.from('grievances').select('data'),
       ]);
       if (tasksRes.data) DS.tasks    = tasksRes.data.map(r => r.data);
       if (projRes.data)  DS.projects = projRes.data.map(r => r.data);
       if (callsRes?.data) DS.calls   = callsRes.data.map(r => r.data);
       if (annRes?.data) DS.announcements = annRes.data.map(r => r.data);
+      if (grvRes?.data) DS.grievances = grvRes.data.map(r => r.data);
       if (vendRes.data)  window.DS_vendors   = vendRes.data.map(r => r.data);
       if (campRes.data)  window.DS_campaigns = campRes.data.map(r => r.data);
       if (contRes.data)  window.DS_content   = contRes.data.map(r => r.data);
@@ -11848,6 +12086,18 @@ const GAS = {
     const sb = _getSB(); if (!sb) return;
     try { await sb.from('projects').delete().eq('id', id); }
     catch(e) { console.warn('[SB.deleteProject]', e); }
+  },
+
+  async saveGrievance(g) {
+    const sb = _getSB(); if (!sb || !g?.id) return;
+    try { await sb.from('grievances').upsert({ id: g.id, data: g, created_at: g.createdAt || new Date().toISOString() }); }
+    catch(e) { console.warn('[SB.saveGrievance]', e); }
+  },
+
+  async deleteGrievance(id) {
+    const sb = _getSB(); if (!sb) return;
+    try { await sb.from('grievances').delete().eq('id', id); }
+    catch(e) { console.warn('[SB.deleteGrievance]', e); }
   },
 
   async saveAnnouncement(a) {
