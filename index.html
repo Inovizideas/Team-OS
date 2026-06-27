@@ -9510,8 +9510,12 @@ function _isSubmissionLocked() {
   const now = new Date();
   const day = now.getDay();
   const hour = now.getHours();
-  return (day === 6) || (day === 5 && hour >= 18);
+  if (day === 5 && hour >= 18) return true;
+  if (day === 6 && hour < 12) return true;
+  return false;
 }
+
+const HUDDLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1qWEBXIW2CwM9loLH6q-BqcEGQbmfulij/edit?usp=sharing&ouid=117819379294905083415&rtpof=true&sd=true';
 
 function renderHuddlePage() {
   const el = document.getElementById('page-huddle');
@@ -9532,6 +9536,15 @@ function renderHuddlePage() {
         <h2>Weekly Huddle</h2>
         <p>Submit work blockers & external issues. Discussed every Saturday at 11:30 AM.</p>
       </div>
+    </div>
+
+    <!-- Google Sheet -->
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--space-xl);">
+      <div style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-default);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:var(--text-sm);font-weight:700;">📊 Grievance Sheet</span>
+        <a href="${HUDDLE_SHEET_URL}" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;">Open in Google Sheets</a>
+      </div>
+      <iframe src="${HUDDLE_SHEET_URL.replace('/edit','/preview')}" style="width:100%;height:350px;border:none;"></iframe>
     </div>
 
     <!-- Submit Form -->
