@@ -7096,7 +7096,7 @@ function renderDashboard() {
     <!-- Today's Focus -->
     ${(() => {
       const todayStr = _today();
-      const myDueToday = (admin ? DS.tasks : myTasks).filter(t => t.due === todayStr && t.status !== 'Done' && t.status !== 'Cancelled');
+      const myDueToday = myTasks.filter(t => t.due === todayStr && t.status !== 'Done' && t.status !== 'Cancelled');
       const tomorrowText = window._myEodYesterday || '';
       if (!myDueToday.length && !tomorrowText) return '';
       return `
