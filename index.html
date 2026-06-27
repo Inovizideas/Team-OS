@@ -7306,7 +7306,7 @@ function deleteAnnouncement(id) {
   if (!confirm('Delete this announcement?')) return;
   DS.announcements = DS.announcements.filter(a => a.id !== id);
   _saveLocal();
-  GAS?.call('deleteAnnouncement', { id });
+  if (_inGAS()) GAS.deleteAnnouncement(id);
   /* Remove from DOM instantly */
   document.getElementById('ann-'+id)?.remove();
   /* If list is now empty, re-render dashboard */
@@ -10713,6 +10713,7 @@ document.addEventListener('teamos:announce', function(e) {
   DS.announcements.unshift(a);
   _pushActivity(`<strong>${who}</strong> posted announcement: <strong>${escHtml(a.subject)}</strong>`, '#4F46E5');
   _saveLocal();
+  if (_inGAS()) GAS.saveAnnouncement(a);
   if (window.TeamOS.currentPage==='dashboard') renderDashboard();
   /* Notify all team members (not self) */
   if (_inGAS()) {
@@ -11760,7 +11761,7 @@ const GAS = {
     const sb = _getSB(); if (!sb) return false;
     try {
       const today = new Date().toISOString().slice(0,10);
-      const [tasksRes, projRes, notifRes, vendRes, campRes, contRes, billRes, checkinRes, attRes, callsRes] = await Promise.all([
+      const [tasksRes, projRes, notifRes, vendRes, campRes, contRes, billRes, checkinRes, attRes, callsRes, annRes] = await Promise.all([
         sb.from('tasks').select('data'),
         sb.from('projects').select('data'),
         sb.from('notifications').select('*').eq('user_name', userName).order('created_at', { ascending: false }).limit(50),
@@ -11771,10 +11772,12 @@ const GAS = {
         sb.from('checkins').select('*').eq('date', today),
         sb.from('attendance').select('*'),
         sb.from('calls').select('data'),
+        sb.from('announcements').select('data'),
       ]);
       if (tasksRes.data) DS.tasks    = tasksRes.data.map(r => r.data);
       if (projRes.data)  DS.projects = projRes.data.map(r => r.data);
       if (callsRes?.data) DS.calls   = callsRes.data.map(r => r.data);
+      if (annRes?.data) DS.announcements = annRes.data.map(r => r.data);
       if (vendRes.data)  window.DS_vendors   = vendRes.data.map(r => r.data);
       if (campRes.data)  window.DS_campaigns = campRes.data.map(r => r.data);
       if (contRes.data)  window.DS_content   = contRes.data.map(r => r.data);
@@ -11845,6 +11848,18 @@ const GAS = {
     const sb = _getSB(); if (!sb) return;
     try { await sb.from('projects').delete().eq('id', id); }
     catch(e) { console.warn('[SB.deleteProject]', e); }
+  },
+
+  async saveAnnouncement(a) {
+    const sb = _getSB(); if (!sb || !a?.id) return;
+    try { await sb.from('announcements').upsert({ id: a.id, data: a, created_at: a.at || new Date().toISOString() }); }
+    catch(e) { console.warn('[SB.saveAnnouncement]', e); }
+  },
+
+  async deleteAnnouncement(id) {
+    const sb = _getSB(); if (!sb) return;
+    try { await sb.from('announcements').delete().eq('id', id); }
+    catch(e) { console.warn('[SB.deleteAnnouncement]', e); }
   },
 
   async saveCall(call) {
