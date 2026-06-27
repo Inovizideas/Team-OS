@@ -11816,7 +11816,7 @@ const GAS = {
       /* Fetch yesterday's EOD for "Today's Focus" on dashboard */
       try {
         const _yest = new Date(new Date().getTime() - 86400000).toISOString().slice(0,10);
-        const eodRes = await sb.from('eod_reports').select('tomorrow').eq('user_name', userName).eq('date', _yest).eq('is_draft', false).limit(1);
+        const eodRes = await sb.from('eod_reports').select('tomorrow').eq('user_name', userName).eq('date', _yest).limit(1);
         window._myEodYesterday = eodRes?.data?.[0]?.tomorrow || '';
       } catch(e) {}
 
