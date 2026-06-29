@@ -2060,13 +2060,13 @@
           <h2>Kanban Board</h2>
           <p>Visual task management across all statuses.</p>
         </div>
-        <div class="page-header-actions">
-          <button class="btn btn-secondary btn-sm">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-            </svg>
-            Filter
-          </button>
+        <div class="page-header-actions" style="display:flex;gap:8px;align-items:center;">
+          <select id="kanban-filter-assignee" onchange="renderKanbanPage()" style="padding:6px 10px;font-size:var(--text-xs);background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);color:var(--text-primary);cursor:pointer;">
+            <option value="">All Members</option>
+          </select>
+          <select id="kanban-filter-brand" onchange="renderKanbanPage()" style="padding:6px 10px;font-size:var(--text-xs);background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);color:var(--text-primary);cursor:pointer;">
+            <option value="">All Brands</option>
+          </select>
           <button class="btn btn-primary btn-sm" id="btn-add-kanban-task" onclick="openTaskModal({status:'To Do'})">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -8025,10 +8025,25 @@ function tickSubtaskDone(taskId, subtaskIdx) {
 }
 
 function renderKanbanPage() {
-  // Kanban page (#page-kanban) already has the board shell from Part 1
-  // Column order: Blocked  To Do  In Progress  In Review  Done
-  // "Not Started" tasks (GAS default) fold into the To Do column.
-  const visibleTasks = _scopedTasks();
+  const assigneeSel = document.getElementById('kanban-filter-assignee');
+  const brandSel = document.getElementById('kanban-filter-brand');
+  const filterAssignee = assigneeSel?.value || '';
+  const filterBrand = brandSel?.value || '';
+
+  if (assigneeSel && assigneeSel.options.length <= 1) {
+    TEAM_MEMBERS.forEach(m => { const o = document.createElement('option'); o.value = m.id; o.textContent = m.name; assigneeSel.appendChild(o); });
+  }
+  if (brandSel && brandSel.options.length <= 1) {
+    const brands = [...new Set(DS.tasks.map(t => t.brand).filter(Boolean))].sort();
+    brands.forEach(b => { const o = document.createElement('option'); o.value = b; o.textContent = b; brandSel.appendChild(o); });
+  }
+  if (assigneeSel) assigneeSel.value = filterAssignee;
+  if (brandSel) brandSel.value = filterBrand;
+
+  let visibleTasks = _scopedTasks();
+  if (filterAssignee) visibleTasks = visibleTasks.filter(t => (t.assignees||[]).includes(filterAssignee) || t.owner === filterAssignee);
+  if (filterBrand) visibleTasks = visibleTasks.filter(t => t.brand === filterBrand);
+
   ['blocked','todo','inprogress','review','changes','done','cancelled'].forEach(colId => {
     const col = document.getElementById('col-' + colId);
     const cnt = document.getElementById('count-' + colId);
@@ -12037,9 +12052,9 @@ const GAS = {
         if (localOnly.length && saveFn) localOnly.forEach(i => saveFn(i));
         return [...sbItems, ...localOnly];
       }
-      DS.calls = _mergeAndPush(callsRes, DS.calls, typeof GAS !== 'undefined' ? GAS.saveCall : null);
-      DS.announcements = _mergeAndPush(annRes, DS.announcements, typeof GAS !== 'undefined' ? GAS.saveAnnouncement : null);
-      DS.grievances = _mergeAndPush(grvRes, DS.grievances, typeof GAS !== 'undefined' ? GAS.saveGrievance : null);
+      DS.calls = _mergeAndPush(callsRes, DS.calls, i => GAS.saveCall(i));
+      DS.announcements = _mergeAndPush(annRes, DS.announcements, i => GAS.saveAnnouncement(i));
+      DS.grievances = _mergeAndPush(grvRes, DS.grievances, i => GAS.saveGrievance(i));
       if (vendRes.data)  window.DS_vendors   = vendRes.data.map(r => r.data);
       if (campRes.data)  window.DS_campaigns = campRes.data.map(r => r.data);
       if (contRes.data)  window.DS_content   = contRes.data.map(r => r.data);
