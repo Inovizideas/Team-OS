@@ -12509,7 +12509,7 @@ const GAS = {
 
   async saveAnnouncement(a) {
     const sb = _getSB(); if (!sb || !a?.id) return;
-    try { await sb.from('announcements').upsert({ id: a.id, data: a, created_at: a.at || new Date().toISOString() }); }
+    try { await sb.from('announcements').upsert({ id: a.id, data: a, created_at: new Date().toISOString() }); }
     catch(e) { console.warn('[SB.saveAnnouncement]', e); }
   },
 
