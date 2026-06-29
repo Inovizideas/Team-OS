@@ -1869,6 +1869,15 @@
       Weekly Huddle
     </div>
 
+    <div class="nav-item" data-page="mktcal" onclick="navigateTo('mktcal')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      Marketing Calendar
+    </div>
+
     <div class="nav-item" data-page="team" onclick="navigateTo('team')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -2487,6 +2496,15 @@
     Weekly Huddle
   </div>
 
+  <div class="nav-item" data-page="mktcal" onclick="navigateTo('mktcal'); closeMobileNav();">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    Marketing Calendar
+  </div>
+
   <div class="nav-item" data-page="team" onclick="navigateTo('team'); closeMobileNav();">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -2859,6 +2877,7 @@
     recurring:  'Recurring Tasks',
     calls:      'Calls',
     huddle:     'Weekly Huddle',
+    mktcal:     'Marketing Calendar',
   };
 
   function navigateTo(page) {
@@ -6628,6 +6647,7 @@ const DS = {
   travelPlans: {},
   calls: [],
   grievances: [],
+  mktEvents: [],
   announcements: [],
   activity:    [],
   settings: {
@@ -6657,6 +6677,7 @@ const LS = {
   TRAVEL:        'iipl_travel',
   CALLS:         'iipl_calls',
   GRIEVANCES:    'iipl_grievances',
+  MKTEVENTS:     'iipl_mktevents',
   ANNOUNCEMENTS: 'iipl_announcements',
   VENDORS:       'iipl_vendors',
   CAMPAIGNS:     'iipl_campaigns',
@@ -6673,6 +6694,7 @@ function _saveLocal() {
     _lsSet(LS.TRAVEL,        JSON.stringify(DS.travelPlans || {}));
     _lsSet(LS.CALLS,         JSON.stringify(DS.calls || []));
     _lsSet(LS.GRIEVANCES,    JSON.stringify(DS.grievances || []));
+    _lsSet(LS.MKTEVENTS,     JSON.stringify(DS.mktEvents || []));
     _lsSet(LS.ANNOUNCEMENTS, JSON.stringify(DS.announcements));
     _lsSet(LS.ACTIVITY,      JSON.stringify(DS.activity.slice(0,50)));
     if (window.DS_vendors)   _lsSet(LS.VENDORS,   JSON.stringify(window.DS_vendors));
@@ -6703,6 +6725,9 @@ function _loadLocal() {
 
     const grievances = _lsGet(LS.GRIEVANCES);
     if (grievances) DS.grievances = JSON.parse(grievances);
+
+    const mktevents = _lsGet(LS.MKTEVENTS);
+    if (mktevents) DS.mktEvents = JSON.parse(mktevents);
 
     const announcements = _lsGet(LS.ANNOUNCEMENTS);
     if (announcements) DS.announcements = JSON.parse(announcements);
@@ -6758,7 +6783,7 @@ document.addEventListener('teamos:navigate', function(e) {
 function ensureExtraPages() {
   const mc = document.getElementById('main-content');
   if (!mc) return;
-  ['mytasks','watching','attendance','admin','eod','misctasks','recurring','calls','huddle'].forEach(id => {
+  ['mytasks','watching','attendance','admin','eod','misctasks','recurring','calls','huddle','mktcal'].forEach(id => {
     if (!document.getElementById('page-' + id)) {
       const sec = document.createElement('section');
       sec.className = 'page';
@@ -8132,6 +8157,7 @@ document.addEventListener('teamos:navigate', function(e) {
   if (e.detail.page === 'recurring') { ensureExtraPages(); setTimeout(renderRecurringPage, 50); }
   if (e.detail.page === 'calls')     { ensureExtraPages(); setTimeout(renderCallsPage, 50); }
   if (e.detail.page === 'huddle')    { ensureExtraPages(); setTimeout(renderHuddlePage, 50); }
+  if (e.detail.page === 'mktcal')    { ensureExtraPages(); setTimeout(renderMktCalPage, 50); }
 });
 
 /*  WATCHING PAGE  */
@@ -9511,6 +9537,314 @@ function renderCallsPage() {
       </div>
     </div>` : ''}
   `;
+}
+
+/* ── MARKETING CALENDAR ──────────────────────────────────────────────────── */
+
+const MKT_BRANDS = ['WOTM','Narradora','Ocean Yera','Pasabahce','Neelam','Echt','Sanjeev Kapoor','Storehaus','Vipron','R&R','IIPL'];
+const MKT_PLATFORMS = ['Amazon','Blinkit','BigBasket','Swiggy','JioMart','Flipkart','Ajio','Website','Lifestyle','Myntra','All'];
+const MKT_TYPES = [
+  { key:'sale',      label:'Sale',             color:'#EF4444', bg:'rgba(239,68,68,0.10)' },
+  { key:'campaign',  label:'Campaign',         color:'#3B82F6', bg:'rgba(59,130,246,0.10)' },
+  { key:'launch',    label:'Product Launch',    color:'#10B981', bg:'rgba(16,185,129,0.10)' },
+  { key:'festival',  label:'Festival/Season',   color:'#F59E0B', bg:'rgba(245,158,11,0.10)' },
+  { key:'marketplace',label:'Marketplace Event', color:'#8B5CF6', bg:'rgba(139,92,246,0.10)' },
+  { key:'discount',  label:'Discount Period',   color:'#EC4899', bg:'rgba(236,72,153,0.10)' },
+  { key:'milestone', label:'Internal Milestone', color:'#06B6D4', bg:'rgba(6,182,212,0.10)' },
+  { key:'promo',     label:'Brand Promotion',   color:'#F97316', bg:'rgba(249,115,22,0.10)' },
+];
+
+window._mktCalMonth = new Date().getMonth();
+window._mktCalYear = new Date().getFullYear();
+window._mktCalView = 'month';
+
+function renderMktCalPage() {
+  const el = document.getElementById('page-mktcal');
+  if (!el) return;
+  const admin = isAdmin();
+  const view = window._mktCalView || 'month';
+  const year = window._mktCalYear;
+  const month = window._mktCalMonth;
+  const filterBrand = window._mktFilterBrand || '';
+  const filterType = window._mktFilterType || '';
+  const filterPlatform = window._mktFilterPlatform || '';
+  const searchQ = window._mktSearchQ || '';
+
+  let events = DS.mktEvents || [];
+  if (filterBrand) events = events.filter(e => e.brand === filterBrand);
+  if (filterType) events = events.filter(e => e.type === filterType);
+  if (filterPlatform) events = events.filter(e => (e.platforms || []).includes(filterPlatform));
+  if (searchQ) { const q = searchQ.toLowerCase(); events = events.filter(e => e.title?.toLowerCase().includes(q) || e.brand?.toLowerCase().includes(q)); }
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2>📅 Marketing Calendar</h2>
+        <p>Plan campaigns, sales, launches & events for the full financial year.</p>
+      </div>
+      <div class="page-header-actions">
+        ${admin ? `<button class="btn btn-primary btn-sm" onclick="_openMktEventModal()">+ Add Event</button>` : ''}
+      </div>
+    </div>
+
+    <!-- View Toggle + Navigation -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+      <div style="display:flex;gap:4px;">
+        <button onclick="_mktSetView('month')" style="padding:6px 14px;font-size:var(--text-xs);font-weight:700;border-radius:var(--radius-md);cursor:pointer;border:1.5px solid ${view==='month'?'var(--brand-primary)':'var(--border-default)'};background:${view==='month'?'rgba(240,180,41,0.12)':'var(--bg-elevated)'};color:${view==='month'?'var(--brand-primary)':'var(--text-secondary)'};">Month</button>
+        <button onclick="_mktSetView('quarter')" style="padding:6px 14px;font-size:var(--text-xs);font-weight:700;border-radius:var(--radius-md);cursor:pointer;border:1.5px solid ${view==='quarter'?'var(--brand-primary)':'var(--border-default)'};background:${view==='quarter'?'rgba(240,180,41,0.12)':'var(--bg-elevated)'};color:${view==='quarter'?'var(--brand-primary)':'var(--text-secondary)'};">Quarter</button>
+        <button onclick="_mktSetView('year')" style="padding:6px 14px;font-size:var(--text-xs);font-weight:700;border-radius:var(--radius-md);cursor:pointer;border:1.5px solid ${view==='year'?'var(--brand-primary)':'var(--border-default)'};background:${view==='year'?'rgba(240,180,41,0.12)':'var(--bg-elevated)'};color:${view==='year'?'var(--brand-primary)':'var(--text-secondary)'};">Year</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button onclick="_mktNav(-1)" style="background:none;border:1px solid var(--border-default);border-radius:var(--radius-sm);padding:4px 10px;cursor:pointer;color:var(--text-primary);font-weight:700;">◀</button>
+        <span style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);min-width:140px;text-align:center;">${view==='year' ? year : view==='quarter' ? 'Q'+Math.ceil((month+1)/3)+' '+year : monthNames[month]+' '+year}</span>
+        <button onclick="_mktNav(1)" style="background:none;border:1px solid var(--border-default);border-radius:var(--radius-sm);padding:4px 10px;cursor:pointer;color:var(--text-primary);font-weight:700;">▶</button>
+        <button onclick="_mktGoToday()" style="font-size:var(--text-xs);padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-default);background:var(--bg-elevated);cursor:pointer;color:var(--text-muted);">Today</button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      <input type="text" placeholder="Search events…" value="${escHtml(searchQ)}" oninput="window._mktSearchQ=this.value;renderMktCalPage();" style="padding:5px 10px;font-size:var(--text-xs);border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--bg-elevated);color:var(--text-primary);width:160px;">
+      <select onchange="window._mktFilterBrand=this.value;renderMktCalPage();" style="padding:5px 8px;font-size:var(--text-xs);border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--bg-elevated);color:var(--text-primary);">
+        <option value="">All Brands</option>
+        ${MKT_BRANDS.map(b => '<option value="'+b+'"'+(filterBrand===b?' selected':'')+'>'+b+'</option>').join('')}
+      </select>
+      <select onchange="window._mktFilterType=this.value;renderMktCalPage();" style="padding:5px 8px;font-size:var(--text-xs);border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--bg-elevated);color:var(--text-primary);">
+        <option value="">All Types</option>
+        ${MKT_TYPES.map(t => '<option value="'+t.key+'"'+(filterType===t.key?' selected':'')+'>'+t.label+'</option>').join('')}
+      </select>
+      <select onchange="window._mktFilterPlatform=this.value;renderMktCalPage();" style="padding:5px 8px;font-size:var(--text-xs);border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--bg-elevated);color:var(--text-primary);">
+        <option value="">All Platforms</option>
+        ${MKT_PLATFORMS.map(p => '<option value="'+p+'"'+(filterPlatform===p?' selected':'')+'>'+p+'</option>').join('')}
+      </select>
+    </div>
+
+    <!-- Legend -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+      ${MKT_TYPES.map(t => '<span style="font-size:10px;padding:2px 8px;border-radius:var(--radius-full);background:'+t.bg+';color:'+t.color+';font-weight:600;border:1px solid '+t.color+'33;">'+t.label+'</span>').join('')}
+    </div>
+
+    <!-- Calendar Body -->
+    <div id="mkt-cal-body">
+      ${view === 'month' ? _mktMonthView(year, month, events) : view === 'quarter' ? _mktQuarterView(year, month, events) : _mktYearView(year, events)}
+    </div>
+  `;
+}
+
+function _mktSetView(v) { window._mktCalView = v; renderMktCalPage(); }
+function _mktGoToday() { window._mktCalMonth = new Date().getMonth(); window._mktCalYear = new Date().getFullYear(); renderMktCalPage(); }
+function _mktNav(dir) {
+  const v = window._mktCalView;
+  if (v === 'month') { window._mktCalMonth += dir; if (window._mktCalMonth > 11) { window._mktCalMonth = 0; window._mktCalYear++; } if (window._mktCalMonth < 0) { window._mktCalMonth = 11; window._mktCalYear--; } }
+  else if (v === 'quarter') { window._mktCalMonth += dir * 3; if (window._mktCalMonth > 11) { window._mktCalMonth -= 12; window._mktCalYear++; } if (window._mktCalMonth < 0) { window._mktCalMonth += 12; window._mktCalYear--; } }
+  else { window._mktCalYear += dir; }
+  renderMktCalPage();
+}
+
+function _mktMonthView(year, month, events) {
+  const dim = new Date(year, month + 1, 0).getDate();
+  const fdow = new Date(year, month, 1).getDay();
+  const today = _today();
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border-default);border:1px solid var(--border-default);border-radius:var(--radius-md);overflow:hidden;">';
+  days.forEach(d => { html += '<div style="padding:6px;text-align:center;font-size:10px;font-weight:700;color:var(--text-muted);background:var(--bg-surface);">'+d+'</div>'; });
+
+  for (let i = 0; i < fdow; i++) html += '<div style="background:var(--bg-surface);min-height:90px;padding:4px;"></div>';
+
+  for (let d = 1; d <= dim; d++) {
+    const ds = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const isToday = ds === today;
+    const dayEvents = events.filter(e => e.startDate <= ds && e.endDate >= ds);
+
+    html += '<div style="background:var(--bg-surface);min-height:90px;padding:4px;cursor:pointer;" onclick="'+(isAdmin()?'_openMktEventModal(null,\''+ds+'\')':'')+'">';
+    html += '<div style="font-size:11px;font-weight:'+(isToday?'800':'600')+';color:'+(isToday?'var(--brand-primary)':'var(--text-primary)')+';margin-bottom:2px;'+(isToday?'background:var(--brand-primary);color:#000;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;':'')+'">'+d+'</div>';
+
+    dayEvents.slice(0, 3).forEach(ev => {
+      const tc = MKT_TYPES.find(t => t.key === ev.type) || MKT_TYPES[0];
+      html += '<div onclick="event.stopPropagation();_openMktEventModal(\''+ev.id+'\')" style="font-size:9px;padding:1px 4px;margin-bottom:1px;border-radius:2px;background:'+tc.bg+';color:'+tc.color+';font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" title="'+escHtml(ev.title)+'">'+escHtml(ev.title)+'</div>';
+    });
+    if (dayEvents.length > 3) html += '<div style="font-size:9px;color:var(--text-muted);">+' + (dayEvents.length-3) + ' more</div>';
+    html += '</div>';
+  }
+
+  const totalCells = fdow + dim;
+  for (let i = totalCells; i % 7 !== 0; i++) html += '<div style="background:var(--bg-surface);min-height:90px;padding:4px;"></div>';
+  html += '</div>';
+  return html;
+}
+
+function _mktQuarterView(year, month, events) {
+  const qStart = Math.floor(month / 3) * 3;
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">';
+  for (let m = qStart; m < qStart + 3; m++) {
+    const dim = new Date(year, m + 1, 0).getDate();
+    const mEvents = events.filter(e => {
+      const eStart = e.startDate || ''; const eEnd = e.endDate || '';
+      const mStart = year+'-'+String(m+1).padStart(2,'0')+'-01';
+      const mEnd = year+'-'+String(m+1).padStart(2,'0')+'-'+String(dim).padStart(2,'0');
+      return eStart <= mEnd && eEnd >= mStart;
+    });
+    html += '<div class="card" style="padding:12px;">';
+    html += '<div style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);margin-bottom:8px;">'+monthNames[m]+' '+year+' <span style="font-weight:400;color:var(--text-muted);">('+mEvents.length+')</span></div>';
+    if (mEvents.length) {
+      html += mEvents.slice(0, 8).map(ev => {
+        const tc = MKT_TYPES.find(t => t.key === ev.type) || MKT_TYPES[0];
+        return '<div onclick="_openMktEventModal(\''+ev.id+'\')" style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer;border-bottom:1px solid var(--border-default);"><span style="width:8px;height:8px;border-radius:50%;background:'+tc.color+';flex-shrink:0;"></span><span style="font-size:var(--text-xs);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(ev.title)+'</span><span style="font-size:9px;color:var(--text-muted);margin-left:auto;white-space:nowrap;">'+ev.startDate.slice(5)+'</span></div>';
+      }).join('');
+      if (mEvents.length > 8) html += '<div style="font-size:9px;color:var(--text-muted);padding:4px 0;">+' + (mEvents.length-8) + ' more</div>';
+    } else {
+      html += '<div style="font-size:var(--text-xs);color:var(--text-muted);text-align:center;padding:12px;">No events</div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function _mktYearView(year, events) {
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">';
+  for (let m = 0; m < 12; m++) {
+    const dim = new Date(year, m + 1, 0).getDate();
+    const mStart = year+'-'+String(m+1).padStart(2,'0')+'-01';
+    const mEnd = year+'-'+String(m+1).padStart(2,'0')+'-'+String(dim).padStart(2,'0');
+    const mEvents = events.filter(e => (e.startDate||'') <= mEnd && (e.endDate||'') >= mStart);
+    const isCurrentMonth = m === new Date().getMonth() && year === new Date().getFullYear();
+    html += '<div style="background:var(--bg-surface);border:1.5px solid '+(isCurrentMonth?'var(--brand-primary)':'var(--border-default)')+';border-radius:var(--radius-md);padding:10px;cursor:pointer;" onclick="window._mktCalMonth='+m+';window._mktCalView=\'month\';renderMktCalPage();">';
+    html += '<div style="font-size:var(--text-xs);font-weight:700;color:'+(isCurrentMonth?'var(--brand-primary)':'var(--text-primary)')+';margin-bottom:6px;">'+monthNames[m]+'</div>';
+    if (mEvents.length) {
+      html += mEvents.slice(0, 4).map(ev => {
+        const tc = MKT_TYPES.find(t => t.key === ev.type) || MKT_TYPES[0];
+        return '<div style="font-size:9px;padding:1px 4px;margin-bottom:2px;border-radius:2px;background:'+tc.bg+';color:'+tc.color+';font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(ev.title)+'</div>';
+      }).join('');
+      if (mEvents.length > 4) html += '<div style="font-size:9px;color:var(--text-muted);">+' + (mEvents.length-4) + ' more</div>';
+    } else {
+      html += '<div style="font-size:9px;color:var(--text-muted);">—</div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+/* ── MARKETING EVENT MODAL ──────────────────────────────────────────────── */
+function _openMktEventModal(editId, prefillDate) {
+  const ev = editId ? (DS.mktEvents || []).find(e => e.id === editId) : null;
+  let m = document.getElementById('modal-mktevent-overlay');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'modal-mktevent-overlay';
+    m.className = 'modal-overlay';
+    m.innerHTML = '<div class="modal" style="max-width:540px;" role="dialog" aria-modal="true"><div class="modal-header"><h3 class="modal-title" id="mktevent-modal-title">📅 Add Event</h3><button class="modal-close" onclick="closeModal(\'modal-mktevent-overlay\')" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div class="modal-body" id="mktevent-modal-body"></div></div>';
+    document.body.appendChild(m);
+  }
+  document.getElementById('mktevent-modal-title').textContent = ev ? '✏️ Edit Event' : '📅 Add Event';
+  const body = document.getElementById('mktevent-modal-body');
+  const defDate = prefillDate || _today();
+
+  body.innerHTML = `
+    <div class="form-group" style="margin-bottom:12px;">
+      <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Event Title *</label>
+      <input id="mkt-title" type="text" class="form-control" value="${escHtml(ev?.title||'')}" placeholder="e.g. Amazon Great Indian Sale, WOTM Launch" style="font-size:var(--text-sm);">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div class="form-group">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Start Date *</label>
+        <input id="mkt-start" type="date" class="form-control" value="${ev?.startDate||defDate}" style="font-size:var(--text-sm);">
+      </div>
+      <div class="form-group">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">End Date *</label>
+        <input id="mkt-end" type="date" class="form-control" value="${ev?.endDate||defDate}" style="font-size:var(--text-sm);">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div class="form-group">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Brand *</label>
+        <select id="mkt-brand" class="form-control" style="font-size:var(--text-sm);">
+          ${MKT_BRANDS.map(b => '<option value="'+b+'"'+(ev?.brand===b?' selected':'')+'>'+b+'</option>').join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Event Type *</label>
+        <select id="mkt-type" class="form-control" style="font-size:var(--text-sm);">
+          ${MKT_TYPES.map(t => '<option value="'+t.key+'"'+(ev?.type===t.key?' selected':'')+'>'+t.label+'</option>').join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Platforms</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${MKT_PLATFORMS.map(p => '<label style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs);padding:4px 8px;border-radius:var(--radius-sm);background:var(--bg-elevated);border:1px solid var(--border-default);cursor:pointer;"><input type="checkbox" value="'+p+'" class="mkt-platform-cb" '+((ev?.platforms||[]).includes(p)?'checked':'')+' style="accent-color:var(--brand-primary);">'+p+'</label>').join('')}
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Description / Notes</label>
+      <textarea id="mkt-desc" class="form-control" rows="2" style="font-size:var(--text-sm);resize:none;" placeholder="Campaign details, discount %, target audience…">${escHtml(ev?.description||'')}</textarea>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:var(--text-xs);color:var(--text-secondary);cursor:pointer;">
+        <input type="checkbox" id="mkt-recurring" ${ev?.recurring?'checked':''} style="accent-color:var(--brand-primary);">
+        Recurring annually
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="_saveMktEvent('${ev?.id||''}')" style="flex:1;padding:10px;font-weight:700;">${ev ? 'Update Event' : 'Add Event'}</button>
+      ${ev ? '<button class="btn btn-sm" style="background:rgba(239,68,68,0.10);color:#EF4444;border:1px solid rgba(239,68,68,0.25);padding:10px 16px;font-weight:700;cursor:pointer;" onclick="_deleteMktEvent(\''+ev.id+'\')">Delete</button>' : ''}
+    </div>`;
+
+  window._mktEditId = ev?.id || null;
+  openModal('modal-mktevent-overlay');
+}
+
+function _saveMktEvent(editId) {
+  const title = document.getElementById('mkt-title')?.value.trim();
+  const startDate = document.getElementById('mkt-start')?.value;
+  const endDate = document.getElementById('mkt-end')?.value;
+  if (!title || !startDate || !endDate) { showToast({ type:'warning', title:'Required', message:'Title, start and end dates are required.' }); return; }
+
+  const platforms = [...document.querySelectorAll('.mkt-platform-cb:checked')].map(c => c.value);
+  const evData = {
+    title,
+    startDate,
+    endDate,
+    brand: document.getElementById('mkt-brand')?.value || '',
+    type: document.getElementById('mkt-type')?.value || 'campaign',
+    platforms,
+    description: document.getElementById('mkt-desc')?.value.trim() || '',
+    recurring: document.getElementById('mkt-recurring')?.checked || false,
+    createdBy: window.TeamOS?.currentUser?.initials || '',
+    createdAt: new Date().toISOString(),
+  };
+
+  if (editId) {
+    const existing = (DS.mktEvents || []).find(e => e.id === editId);
+    if (existing) Object.assign(existing, evData);
+    evData.id = editId;
+  } else {
+    evData.id = 'mkt_' + Date.now();
+    if (!DS.mktEvents) DS.mktEvents = [];
+    DS.mktEvents.push(evData);
+  }
+
+  _saveLocal();
+  if (_inGAS()) GAS.saveMktEvent(evData);
+  closeModal('modal-mktevent-overlay');
+  showToast({ type:'success', title: editId ? 'Event updated' : 'Event added', message: title });
+  renderMktCalPage();
+}
+
+function _deleteMktEvent(id) {
+  if (!confirm('Delete this event?')) return;
+  DS.mktEvents = (DS.mktEvents || []).filter(e => e.id !== id);
+  _saveLocal();
+  if (_inGAS()) GAS.deleteMktEvent(id);
+  closeModal('modal-mktevent-overlay');
+  showToast({ type:'warning', title:'Event deleted' });
+  renderMktCalPage();
 }
 
 /* ── WEEKLY HUDDLE PAGE ───────────────────────────────────────────────────── */
@@ -11075,6 +11409,7 @@ function _routeTaskDone(t) {
   else if (p === 'recurring') renderRecurringPage && renderRecurringPage();
   else if (p === 'calls') renderCallsPage && renderCallsPage();
   else if (p === 'huddle') renderHuddlePage && renderHuddlePage();
+  else if (p === 'mktcal') renderMktCalPage && renderMktCalPage();
   if (window._drawerTaskId === t.id) openTaskDrawer(t.id);
 }
 
@@ -11128,6 +11463,7 @@ function approveTask(taskId) {
   else if (p === 'recurring') renderRecurringPage && renderRecurringPage();
   else if (p === 'calls') renderCallsPage && renderCallsPage();
   else if (p === 'huddle') renderHuddlePage && renderHuddlePage();
+  else if (p === 'mktcal') renderMktCalPage && renderMktCalPage();
   if (window._drawerTaskId === taskId) openTaskDrawer(taskId);
 }
 
@@ -11323,6 +11659,7 @@ document.addEventListener('teamos:ready', function() {
       else if (pg === 'recurring')  _try(renderRecurringPage);
       else if (pg === 'calls')      _try(renderCallsPage);
       else if (pg === 'huddle')     _try(renderHuddlePage);
+      else if (pg === 'mktcal')     _try(renderMktCalPage);
       if (ok) {
         showToast({ type:'success', title:'✓ Synced', message: DS.tasks.length + ' tasks loaded from Supabase.', duration:2500 });
       } else {
@@ -11399,6 +11736,7 @@ document.addEventListener('teamos:ready', function() {
         else if (pg === 'recurring')  _try(renderRecurringPage);
         else if (pg === 'calls')      _try(renderCallsPage);
       else if (pg === 'huddle')     _try(renderHuddlePage);
+      else if (pg === 'mktcal')     _try(renderMktCalPage);
         else if (pg === 'attendance') _try(renderAttendancePage);
         else if (pg === 'team')       _try(renderTeamPage);
         else if (pg === 'brands')     _try(renderProjectsPage);
@@ -12027,7 +12365,7 @@ const GAS = {
     const sb = _getSB(); if (!sb) return false;
     try {
       const today = new Date().toISOString().slice(0,10);
-      const [tasksRes, projRes, notifRes, vendRes, campRes, contRes, billRes, checkinRes, attRes, callsRes, annRes, grvRes] = await Promise.all([
+      const [tasksRes, projRes, notifRes, vendRes, campRes, contRes, billRes, checkinRes, attRes, callsRes, annRes, grvRes, mktRes] = await Promise.all([
         sb.from('tasks').select('data'),
         sb.from('projects').select('data'),
         sb.from('notifications').select('*').eq('user_name', userName).order('created_at', { ascending: false }).limit(50),
@@ -12040,6 +12378,7 @@ const GAS = {
         sb.from('calls').select('data'),
         sb.from('announcements').select('data'),
         sb.from('grievances').select('data'),
+        sb.from('marketing_calendar').select('data'),
       ]);
       if (tasksRes.data) DS.tasks    = tasksRes.data.map(r => r.data);
       if (projRes.data)  DS.projects = projRes.data.map(r => r.data);
@@ -12055,6 +12394,7 @@ const GAS = {
       DS.calls = _mergeAndPush(callsRes, DS.calls, i => GAS.saveCall(i));
       DS.announcements = _mergeAndPush(annRes, DS.announcements, i => GAS.saveAnnouncement(i));
       DS.grievances = _mergeAndPush(grvRes, DS.grievances, i => GAS.saveGrievance(i));
+      DS.mktEvents = _mergeAndPush(mktRes, DS.mktEvents, i => GAS.saveMktEvent(i));
       if (vendRes.data)  window.DS_vendors   = vendRes.data.map(r => r.data);
       if (campRes.data)  window.DS_campaigns = campRes.data.map(r => r.data);
       if (contRes.data)  window.DS_content   = contRes.data.map(r => r.data);
@@ -12125,6 +12465,18 @@ const GAS = {
     const sb = _getSB(); if (!sb) return;
     try { await sb.from('projects').delete().eq('id', id); }
     catch(e) { console.warn('[SB.deleteProject]', e); }
+  },
+
+  async saveMktEvent(ev) {
+    const sb = _getSB(); if (!sb || !ev?.id) return;
+    try { await sb.from('marketing_calendar').upsert({ id: ev.id, data: ev, created_at: ev.createdAt || new Date().toISOString() }); }
+    catch(e) { console.warn('[SB.saveMktEvent]', e); }
+  },
+
+  async deleteMktEvent(id) {
+    const sb = _getSB(); if (!sb) return;
+    try { await sb.from('marketing_calendar').delete().eq('id', id); }
+    catch(e) { console.warn('[SB.deleteMktEvent]', e); }
   },
 
   async saveGrievance(g) {
