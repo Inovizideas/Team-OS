@@ -8455,6 +8455,7 @@ function _renderAttendanceAdmin(el) {
         </button>
         <button class="btn btn-primary btn-sm" onclick="exportAttendance()">Export CSV</button>
         <button class="btn btn-secondary btn-sm" onclick="downloadMonthlyAttendanceReport()" title="Summary report for last month — days present, absent, leave, total hours">📊 Monthly Report</button>
+        <button class="btn btn-secondary btn-sm" onclick="downloadFinancialYearReport()" title="Full financial year (Apr-Mar) report — every month + annual totals, ready for Drive archive">📅 Full FY Report</button>
       </div>
     </div>
 
@@ -10195,6 +10196,49 @@ function downloadMonthlyAttendanceReport(year, month) {
   a.download = 'IIPL_Attendance_Summary_' + monthLabel.replace(' ','_') + '.csv';
   a.click();
   showToast({ type:'success', title:'Report ready', message: monthLabel + ' summary downloaded. Paste into the master Attendance Tracker sheet.' });
+}
+
+/* Indian Financial Year: April (fyStartYear) → March (fyStartYear+1) */
+function _currentFYStartYear() {
+  const now = new Date();
+  return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+function downloadFinancialYearReport(fyStartYear) {
+  if (fyStartYear === undefined) fyStartYear = _currentFYStartYear();
+  const allRows = [['Employee','Month','Days Present','Days Absent/Not Marked','On Leave','Traveling','Away From Desk','Total Hours Worked','Avg Hours/Day']];
+
+  /* April → December of fyStartYear, then January → March of fyStartYear+1 */
+  const monthSeq = [];
+  for (let m = 3; m <= 11; m++) monthSeq.push({ y: fyStartYear, m });
+  for (let m = 0; m <= 2; m++) monthSeq.push({ y: fyStartYear + 1, m });
+
+  monthSeq.forEach(({ y, m }) => {
+    const { rows } = generateMonthlyAttendanceReport(y, m);
+    allRows.push(...rows.slice(1));
+  });
+
+  /* Annual totals per employee */
+  allRows.push([]);
+  allRows.push(['--- ANNUAL TOTALS ---']);
+  allRows.push(['Employee','Total Days Present','Total Days Absent','Total Leaves','Total Traveling Days','Total Hours Worked (FY)']);
+  DS.team.forEach(mem => {
+    let present = 0, absent = 0, leave = 0, traveling = 0, hours = 0;
+    monthSeq.forEach(({ y, m }) => {
+      const { rows } = generateMonthlyAttendanceReport(y, m);
+      const r = rows.slice(1).find(row => row[0] === mem.name);
+      if (r) { present += r[2]; absent += r[3]; leave += r[4]; traveling += r[5]; hours += parseFloat(r[7]) || 0; }
+    });
+    allRows.push([mem.name, present, absent, leave, traveling, hours.toFixed(1)]);
+  });
+
+  const csv = allRows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'IIPL_Attendance_FY' + fyStartYear + '-' + String(fyStartYear+1).slice(-2) + '.csv';
+  a.click();
+  showToast({ type:'success', title:'FY Report ready', message: 'FY ' + fyStartYear + '-' + String(fyStartYear+1).slice(-2) + ' (Apr-Mar) downloaded — upload to your Drive archive.' });
 }
 
 /*  9. CAMPAIGNS PAGE  */
