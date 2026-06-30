@@ -8454,6 +8454,7 @@ function _renderAttendanceAdmin(el) {
           Refresh
         </button>
         <button class="btn btn-primary btn-sm" onclick="exportAttendance()">Export CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="downloadMonthlyAttendanceReport()" title="Summary report for last month — days present, absent, leave, total hours">📊 Monthly Report</button>
       </div>
     </div>
 
@@ -10138,6 +10139,62 @@ function exportAttendance() {
   a.download = `IIPL_Attendance_${year}_${String(month+1).padStart(2,'0')}.csv`;
   a.click();
   showToast({ type:'success', title:'Exported', message:'Attendance CSV downloaded.' });
+}
+
+/* ── MONTHLY ATTENDANCE SUMMARY REPORT (for Drive master sheet) ──────────── */
+function _timeToHours(t) {
+  if (!t) return 0;
+  const m = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!m) return 0;
+  let h = parseInt(m[1]), min = parseInt(m[2]);
+  if (m[3]) { if (m[3].toUpperCase()==='PM' && h!==12) h+=12; if (m[3].toUpperCase()==='AM' && h===12) h=0; }
+  return h + min/60;
+}
+
+function generateMonthlyAttendanceReport(year, month) {
+  /* month is 0-indexed; defaults to previous month (for 1st-of-month reports) */
+  const now = new Date();
+  if (year === undefined) { const prev = new Date(now.getFullYear(), now.getMonth()-1, 1); year = prev.getFullYear(); month = prev.getMonth(); }
+  const dim = new Date(year, month+1, 0).getDate();
+  const monthLabel = new Date(year, month, 1).toLocaleString('en-IN', { month:'long', year:'numeric' });
+
+  const rows = [['Employee','Month','Days Present','Days Absent/Not Marked','On Leave','Traveling','Away From Desk','Total Hours Worked','Avg Hours/Day']];
+
+  DS.team.forEach(m => {
+    const att = DS.attendance[m.id] || {};
+    const chk = DS.checkins[m.id] || {};
+    let present = 0, leave = 0, traveling = 0, away = 0, totalHours = 0, daysWithHours = 0;
+
+    for (let d = 1; d <= dim; d++) {
+      const ds = year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const status = att[ds] || '';
+      const c = chk[ds];
+      if (status === 'leave') leave++;
+      else if (status === 'traveling') traveling++;
+      else if (status === 'away') away++;
+      else if (status || (c && c.in)) present++;
+
+      if (c && c.in && c.out) {
+        const hrs = _timeToHours(c.out) - _timeToHours(c.in);
+        if (hrs > 0) { totalHours += hrs; daysWithHours++; }
+      }
+    }
+    const absent = dim - present - leave - traveling - away;
+    rows.push([m.name, monthLabel, present, Math.max(0,absent), leave, traveling, away, totalHours.toFixed(1), daysWithHours ? (totalHours/daysWithHours).toFixed(1) : '0.0']);
+  });
+
+  return { monthLabel, rows };
+}
+
+function downloadMonthlyAttendanceReport(year, month) {
+  const { monthLabel, rows } = generateMonthlyAttendanceReport(year, month);
+  const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'IIPL_Attendance_Summary_' + monthLabel.replace(' ','_') + '.csv';
+  a.click();
+  showToast({ type:'success', title:'Report ready', message: monthLabel + ' summary downloaded. Paste into the master Attendance Tracker sheet.' });
 }
 
 /*  9. CAMPAIGNS PAGE  */
