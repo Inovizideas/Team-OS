@@ -5234,8 +5234,12 @@
       noApprovalNeeded: document.getElementById('task-no-approval').checked,
       approvers:        _getApprovers(),
     };
+    /* Always record who created the task (preserved on edits) */
+    const _existingForCreator = DS.tasks.find(x => x.id === payload.id);
+    payload.createdBy   = _existingForCreator?.createdBy   || window.TeamOS?.currentUser?.initials || '';
+    payload.createdAt   = _existingForCreator?.createdAt   || new Date().toISOString();
     /* Preserve approval runtime state from existing task */
-    const _existingForApproval = DS.tasks.find(x => x.id === payload.id);
+    const _existingForApproval = _existingForCreator;
     payload.approvalStep    = _existingForApproval?.approvalStep    ?? 0;
     payload.approvalHistory = _existingForApproval?.approvalHistory ?? [];
     /* Reset approvalStep to 0 if approvers list changed */
@@ -7384,6 +7388,7 @@ function quickCreateTask() {
     priority:  'Medium',
     due:       _today(),
     attachments: [],
+    createdBy: window.TeamOS?.currentUser?.initials || '',
     createdAt: new Date().toISOString(),
     _isNew:    true,
   };
@@ -7889,7 +7894,7 @@ function _tasksListHTML(tasks) {
                   <td>${_priorityBadge(t.priority)}</td>
                   <td><span style="font-size:var(--text-xs);color:var(--text-secondary);">${t.brand||''}</span></td>
                   <td>${_assigneeAvatars(t.assignees||[])}</td>
-                  <td>${(() => { const cr = TEAM_MEMBERS.find(m=>m.id===t.owner); return cr ? `<div style="display:flex;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;background:${cr.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0;">${cr.initials}</div><span style="font-size:var(--text-xs);color:var(--text-secondary);">${cr.name.split(' ')[0]}</span></div>` : `<span style="font-size:var(--text-xs);color:var(--text-muted);">—</span>`; })()}</td>
+                  <td>${(() => { const cr = TEAM_MEMBERS.find(m=>m.id===(t.createdBy||t.owner)); return cr ? `<div style="display:flex;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;background:${cr.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0;">${cr.initials}</div><span style="font-size:var(--text-xs);color:var(--text-secondary);">${cr.name.split(' ')[0]}</span></div>` : `<span style="font-size:var(--text-xs);color:var(--text-muted);">—</span>`; })()}</td>
                   <td><span style="font-size:var(--text-xs);font-weight:600;color:${t.due&&t.due<_today()&&t.status!=='Done'?'var(--brand-danger)':'var(--text-muted)'};">${t.due||''}</span></td>
                   <td>
                     <div class="task-row-actions">
@@ -13221,9 +13226,10 @@ function openTaskDrawer(id) {
 
     <!-- Created by -->
     ${(() => {
-      const creator = TEAM_MEMBERS.find(m=>m.id===t.owner);
+      const creatorId = t.createdBy || t.owner;
+      const creator = TEAM_MEMBERS.find(m=>m.id===creatorId);
       const createdDate = t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '';
-      const name = creator ? creator.name : (t.owner || 'Unknown');
+      const name = creator ? creator.name : (creatorId || 'Unknown');
       const avatar = creator
         ? `<div style="width:26px;height:26px;border-radius:50%;background:${creator.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;flex-shrink:0;">${creator.initials}</div>`
         : `<div style="width:26px;height:26px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--border-default);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text-muted);flex-shrink:0;">?</div>`;
@@ -13669,6 +13675,7 @@ function duplicateTask(id) {
     id:        'T-' + Date.now(),
     title:     t.title + ' (copy)',
     status:    'To Do',
+    createdBy: window.TeamOS?.currentUser?.initials || '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     _isNew:    true,   // tells GAS bridge to create, not update
