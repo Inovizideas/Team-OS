@@ -7356,9 +7356,11 @@ function _annBanner(a, showDelete) {
 
 function deleteAnnouncement(id) {
   if (!confirm('Delete this announcement?')) return;
+  /* Soft-delete: mark deleted:true in Supabase so other users' caches don't re-push it */
+  const ann = DS.announcements.find(a => a.id === id);
+  if (ann && _inGAS()) { ann.deleted = true; GAS.saveAnnouncement(ann); }
   DS.announcements = DS.announcements.filter(a => a.id !== id);
   _saveLocal();
-  if (_inGAS()) GAS.deleteAnnouncement(id);
   /* Remove from DOM instantly */
   document.getElementById('ann-'+id)?.remove();
   /* If list is now empty, re-render dashboard */
@@ -11580,7 +11582,7 @@ function _routeTaskDone(t) {
 }
 
 /* ── Approval actions ─────────────────────────────────────────────────── */
-function approveTask(taskId) {
+async function approveTask(taskId) {
   const t = DS.tasks.find(x => x.id === taskId);
   if (!t) return;
   const uid    = window.TeamOS.currentUser?.initials || '';
@@ -11596,9 +11598,11 @@ function approveTask(taskId) {
     /* More approvers in chain — hand over to next */
     t.approvalStep = step + 1;
     t.status = 'In Review';
+    t.updatedAt = new Date().toISOString();
     const nextId = approvers[step + 1];
     const nextMember = TEAM_MEMBERS.find(m => m.id === nextId);
     _saveLocal();
+    if (_inGAS()) await GAS.saveTask(t);
     _notifyApprover(t, nextId, who);
     showToast({ type: 'success', title: 'Approved & handed over', message: `Passed to ${nextMember?.name || nextId} for next review.` });
   } else {
@@ -11608,12 +11612,16 @@ function approveTask(taskId) {
       /* Reset for next cycle */
       t.approvalStep = 0;
       t.status = 'To Do';
+      t.updatedAt = new Date().toISOString();
       _saveLocal();
+      if (_inGAS()) await GAS.saveTask(t);
       showToast({ type: 'success', title: 'Approved! Recurring task reset', message: `${t.title} is reset for the next cycle.` });
     } else {
       t.approvalStep = 0;
       t.status = 'Done';
+      t.updatedAt = new Date().toISOString();
       _saveLocal();
+      if (_inGAS()) await GAS.saveTask(t);
       showToast({ type: 'success', title: 'Approved & Done!', message: t.title });
     }
     /* Notify assignees/owner it's done */
@@ -11850,7 +11858,18 @@ document.addEventListener('teamos:ready', function() {
           sb.from('attendance').select('*'),
           sb.from('checkins').select('*').eq('date', _today()),
         ]);
-        if (tasksRes.data) { DS.tasks = tasksRes.data.map(r => r.data); }
+        if (tasksRes.data) {
+          const sbTasks = tasksRes.data.map(r => r.data);
+          const localById = Object.fromEntries((DS.tasks || []).map(t => [t.id, t]));
+          const merged = sbTasks.map(sbT => {
+            const loc = localById[sbT.id];
+            if (loc && loc.updatedAt && sbT.updatedAt && loc.updatedAt > sbT.updatedAt) return loc;
+            return sbT;
+          });
+          const sbIds = new Set(sbTasks.map(t => t.id));
+          (DS.tasks || []).filter(t => t.id && !sbIds.has(t.id)).forEach(t => merged.push(t));
+          DS.tasks = merged;
+        }
         if (attRes.data) {
           attRes.data.forEach(row => {
             if (!DS.attendance[row.user_name]) DS.attendance[row.user_name] = {};
@@ -12546,7 +12565,21 @@ const GAS = {
         sb.from('grievances').select('data'),
         sb.from('marketing_calendar').select('data'),
       ]);
-      if (tasksRes.data) DS.tasks    = tasksRes.data.map(r => r.data);
+      if (tasksRes.data) {
+        /* Smart merge: prefer whichever version (local or Supabase) has a newer updatedAt */
+        const sbTasks = tasksRes.data.map(r => r.data);
+        const localById = Object.fromEntries((DS.tasks || []).map(t => [t.id, t]));
+        const sbById = Object.fromEntries(sbTasks.map(t => [t.id, t]));
+        const merged = sbTasks.map(sbT => {
+          const loc = localById[sbT.id];
+          if (loc && loc.updatedAt && sbT.updatedAt && loc.updatedAt > sbT.updatedAt) return loc;
+          return sbT;
+        });
+        /* Keep local-only tasks not yet in Supabase */
+        const sbIds = new Set(sbTasks.map(t => t.id));
+        (DS.tasks || []).filter(t => t.id && !sbIds.has(t.id)).forEach(t => merged.push(t));
+        DS.tasks = merged;
+      }
       if (projRes.data)  DS.projects = projRes.data.map(r => r.data);
       /* Merge Supabase data with local — push local-only items to Supabase */
       function _mergeAndPush(sbRes, localArr, saveFn) {
@@ -12558,6 +12591,8 @@ const GAS = {
         return [...sbItems, ...localOnly];
       }
       DS.calls = _mergeAndPush(callsRes, DS.calls, i => GAS.saveCall(i));
+      /* Filter soft-deleted announcements so they don't re-appear after deletion */
+      if (annRes?.data) annRes.data = annRes.data.filter(r => !r.data?.deleted);
       DS.announcements = _mergeAndPush(annRes, DS.announcements, i => GAS.saveAnnouncement(i));
       DS.grievances = _mergeAndPush(grvRes, DS.grievances, i => GAS.saveGrievance(i));
       DS.mktEvents = _mergeAndPush(mktRes, DS.mktEvents, i => GAS.saveMktEvent(i));
