@@ -12646,8 +12646,17 @@ const GAS = {
   /* Save task */
   async saveTask(task) {
     const sb = _getSB(); if (!sb || !task?.id) return;
-    try { await sb.from('tasks').upsert({ id: task.id, data: task, updated_at: new Date().toISOString() }); }
-    catch(e) { console.warn('[SB.saveTask]', e); }
+    try {
+      const res = await sb.from('tasks').upsert({ id: task.id, data: task, updated_at: new Date().toISOString() });
+      if (res.error) {
+        console.error('[SB.saveTask] error:', res.error);
+        showToast({ type:'error', title:'Task save failed', message: res.error.message || 'Supabase error', duration:6000 });
+      }
+    }
+    catch(e) {
+      console.error('[SB.saveTask] exception:', e);
+      showToast({ type:'error', title:'Task save error', message: String(e), duration:6000 });
+    }
   },
 
   async deleteTask(id) {
