@@ -4523,6 +4523,20 @@
    Part 3 (GAS integration). Uses window.TeamOS globals from Part 1.
 ================================================================= */
 
+  /*  Fixed projects — hardcoded, cannot be accidentally deleted  */
+  const FIXED_PROJECTS = [
+    { id: 'proj_onboarding', name: 'Onboarding & Listing' },
+    { id: 'proj_creatives',  name: 'Creatives' },
+    { id: 'proj_inward_ops', name: 'Inward Ops' },
+    { id: 'proj_outward_ops',name: 'Outward Ops' },
+    { id: 'proj_wh',         name: 'WH + Packaging' },
+    { id: 'proj_tech',       name: 'Tech + Softwares' },
+    { id: 'proj_finance',    name: 'Finance & Accounts' },
+    { id: 'proj_core',       name: 'Core + Biz Development' },
+    { id: 'proj_marketing',  name: 'Marketing' },
+    { id: 'proj_misc',       name: 'Misc' },
+  ];
+
   /*  Config  */
   const TEAM_MEMBERS = [
   { id: 'AJ', name: 'Aarush Jain',      initials: 'AJ', color: '#4F46E5' },
@@ -4793,9 +4807,8 @@
 
     const projSel = document.getElementById('task-project');
     if (projSel) {
-      const visProjects = (typeof _scopedProjects === 'function') ? _scopedProjects() : (window.TeamOS?.DS?.projects || []);
       projSel.innerHTML = `<option value=""> Select project </option>` +
-        visProjects.map(p => `<option value="${escHtml(p.name)}"${(taskData?.project === p.name || taskData?.project === p.id) ? ' selected' : ''}>${escHtml(p.name)}</option>`).join('');
+        FIXED_PROJECTS.map(p => `<option value="${p.id}"${taskData?.project === p.id ? ' selected' : ''}>${escHtml(p.name)}</option>`).join('');
     }
 
     // Owner + assignee selects  limit for non-admins
@@ -6911,9 +6924,7 @@ function renderDashboard() {
     const step = t.approvalStep ?? 0;
     return approvers[step] === uid && (t.status === 'In Review' || t.status === 'Changes Requested');
   });
-  const activeProjs  = admin
-    ? DS.projects.filter(p=>p.status==='Active').length
-    : DS.projects.filter(p=>p.status==='Active' && (p.members||[]).includes(uid)).length;
+  const activeProjs  = FIXED_PROJECTS.length;
 
   /*  Announcements  */
   const annHtml = DS.announcements.length ? `
@@ -7089,7 +7100,7 @@ function renderDashboard() {
     </div>` : '';
 
   /*  My Projects (members only)  */
-  const myProjects = admin ? [] : DS.projects.filter(p => (p.members||[]).includes(uid) || p.owner===uid);
+  const myProjects = [];
 
   el.innerHTML = `
     <!-- Quick Create Widget -->
@@ -7400,16 +7411,8 @@ function quickCreateTask() {
 
 /*  4. PROJECTS PAGE  */
 function _scopedProjects() {
-  if (isAdmin()) return DS.projects;
-  const uid = window.TeamOS.currentUser?.initials || '';
-  /* Projects the user is a member/owner of, or has a task in (tasks store project NAME) */
-  const myProjRefs = new Set(_scopedTasks().map(t => t.project).filter(Boolean));
-  return DS.projects.filter(p =>
-    p.owner === uid ||
-    (p.members || []).includes(uid) ||
-    myProjRefs.has(p.id) ||
-    myProjRefs.has(p.name)
-  );
+  /* Always return the fixed project list — all team members see all projects */
+  return FIXED_PROJECTS;
 }
 
 /* Populate the Projects dropdown in the left sidebar */
@@ -7448,84 +7451,51 @@ function renderProjectsPage() {
   if (!el) return;
 
   const hdr = document.querySelector('#page-brands .page-header-left p');
-  if (hdr) hdr.textContent = 'All active projects across IIPL brands and verticals.';
+  if (hdr) hdr.textContent = 'All projects at IIPL. Click a project to see its tasks.';
 
+  /* Hide "New Project" button — projects are now fixed */
   const btn = document.getElementById('btn-add-product');
-  if (btn) { btn.textContent = '+ New Project'; btn.onclick = isAdmin() ? openProjectModal : null; if (!isAdmin()) btn.style.display = 'none'; }
-
-  const visibleProjects = _scopedProjects();
-  const brandFilter = _uniqueVals(visibleProjects, 'brand');
+  if (btn) btn.style.display = 'none';
 
   el.innerHTML = `
-    <div class="filter-bar" style="margin-bottom:var(--space-lg);">
-      <input type="text" class="form-input" placeholder="Search projects" oninput="filterProjects(this.value)" style="max-width:220px;" />
-      <select class="form-select" onchange="filterProjectsByBrand(this.value)" style="max-width:160px;">
-        <option value="">All brands</option>
-        ${brandFilter.map(b=>`<option>${b}</option>`).join('')}
-      </select>
-      <select class="form-select" onchange="filterProjectsByStatus(this.value)" style="max-width:140px;">
-        <option value="">All statuses</option>
-        <option>Active</option><option>Planning</option><option>On Hold</option><option>Completed</option><option>Cancelled</option>
-      </select>
-    </div>
     <div class="grid-auto" id="projects-grid">
-      ${visibleProjects.map(p => _projectCard(p)).join('')}
+      ${FIXED_PROJECTS.map(p => _projectCard(p)).join('')}
     </div>
   `;
 }
 
 function _projectCard(p) {
-  const statusColor = { Active:'#10B981', Planning:'#4F46E5', 'On Hold':'#F59E0B', Completed:'#94A3B8', Cancelled:'#EF4444' };
-  const taskCount   = DS.tasks.filter(t => t.project === p.id || t.project === p.name).length;
-  const members     = (p.members||[]).map(id => {
-    const m = TEAM_MEMBERS.find(x=>x.id===id);
-    return m ? `<div class="avatar-stack-item" title="${m.name}" style="background:${m.color}">${m.initials}</div>` : '';
-  }).join('');
+  const allTasks  = DS.tasks.filter(t => t.project === p.id);
+  const done      = allTasks.filter(t => t.status === 'Done').length;
+  const inprog    = allTasks.filter(t => t.status === 'In Progress').length;
+  const blocked   = allTasks.filter(t => t.status === 'Blocked').length;
+  const total     = allTasks.length;
+  const pct       = total ? Math.round(done / total * 100) : 0;
 
   return `
     <div class="project-card" onclick="openProjectDetail('${p.id}')">
       <div class="project-card-header">
-        <div>
-          <div class="project-card-name">${escHtml(p.name)}</div>
-          <div class="project-card-meta">
-            <span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-              ${escHtml(p.brand)}
-            </span>
-            <span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              ${taskCount} task${taskCount!==1?'s':''}
-            </span>
-            ${p.end ? `<span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              ${p.end}
-            </span>` : ''}
-          </div>
-        </div>
-        <span class="badge" style="background:${statusColor[p.status]||'#94A3B8'}20;color:${statusColor[p.status]||'#94A3B8'};border-color:${statusColor[p.status]||'#94A3B8'}40;flex-shrink:0;">${p.status}</span>
+        <div class="project-card-name">${escHtml(p.name)}</div>
       </div>
-
+      <div class="project-card-meta" style="margin:6px 0 10px;">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> ${total} task${total!==1?'s':''}</span>
+        ${inprog ? `<span style="color:var(--brand-primary);">${inprog} in progress</span>` : ''}
+        ${blocked ? `<span style="color:var(--brand-danger);">${blocked} blocked</span>` : ''}
+      </div>
       <div class="project-progress-bar">
-        <div class="project-progress-fill" style="width:${p.progress||0}%;"></div>
+        <div class="project-progress-fill" style="width:${pct}%;"></div>
       </div>
-
       <div class="project-card-footer">
-        <div class="avatar-stack">${members}</div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:var(--text-xs);font-weight:700;color:var(--brand-primary);">${p.progress||0}%</span>
-          ${isAdmin() ? `<div style="display:flex;flex-direction:column;gap:1px;" onclick="event.stopPropagation()">
-            <button onclick="reorderProject('${p.id}',-1)" title="Move up" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;line-height:1;font-size:11px;">▲</button>
-            <button onclick="reorderProject('${p.id}',1)" title="Move down" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;line-height:1;font-size:11px;">▼</button>
-          </div>` : ''}
-        </div>
+        <span style="font-size:var(--text-xs);color:var(--text-muted);">${done} of ${total} done</span>
+        <span style="font-size:var(--text-xs);font-weight:700;color:var(--brand-primary);">${pct}%</span>
       </div>
     </div>`;
 }
 
 function openProjectDetail(id) {
-  const p = DS.projects.find(x=>x.id===id);
+  const p = FIXED_PROJECTS.find(x=>x.id===id);
   if (!p) return;
-  const tasks    = DS.tasks.filter(t => t.project === id || t.project === p?.name);
+  const tasks    = DS.tasks.filter(t => t.project === id);
   const done     = tasks.filter(t => t.status === 'Done').length;
   const blocked  = tasks.filter(t => t.status === 'Blocked').length;
   const inprog   = tasks.filter(t => t.status === 'In Progress').length;
@@ -7566,59 +7536,18 @@ function openProjectDetail(id) {
   }
 
   document.getElementById('pd-title').textContent = p.name;
-  const _pdEditBtn = document.getElementById('pd-edit-btn');
-  _pdEditBtn.style.display = isAdmin() ? '' : 'none';
-  _pdEditBtn.onclick = () => { closeModal('modal-project-detail-overlay'); openProjectModal(p); };
+  /* Fixed projects cannot be edited or deleted */
+  document.getElementById('pd-edit-btn').style.display = 'none';
+  document.getElementById('pd-delete-btn').style.display = 'none';
 
-  const _pdDeleteBtn = document.getElementById('pd-delete-btn');
-  _pdDeleteBtn.style.display = isAdmin() ? '' : 'none';
-  _pdDeleteBtn.onclick = () => deleteProject(p.id, p.name);
+  const pct = tasks.length ? Math.round(done / tasks.length * 100) : 0;
 
   document.getElementById('pd-body').innerHTML = `
-    <!-- Status + brand row -->
-    <div style="display:flex;gap:var(--space-sm);flex-wrap:wrap;margin-bottom:var(--space-lg);">
-      <span class="badge" style="background:${statusColor[p.status]||'#94A3B8'}20;color:${statusColor[p.status]||'#94A3B8'};border-color:${statusColor[p.status]||'#94A3B8'}40;">${p.status}</span>
-      <span class="badge badge-neutral">${escHtml(p.brand)}</span>
-      ${p.start ? `<span class="badge badge-neutral">Start: ${p.start}</span>` : ''}
-      ${p.end   ? `<span class="badge badge-neutral">Due: ${p.end}</span>`   : ''}
-    </div>
-
-    <!-- Description -->
-    ${p.desc ? `<div style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-lg);line-height:1.7;">${escHtml(p.desc)}</div>` : ''}
-
-    <!-- Attachments -->
-    ${(p.attachments && p.attachments.length) ? `
-    <div style="margin-bottom:var(--space-lg);">
-      <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:var(--space-sm);">Attachments &amp; Documents</div>
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        ${p.attachments.map(a => `
-          <a href="${escHtml(a.url)}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);text-decoration:none;color:var(--text-primary);">
-            <span style="width:26px;height:26px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;background:rgba(79,70,229,0.10);color:var(--brand-primary);flex-shrink:0;">
-              ${a.type === 'link'
-                ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`
-                : `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`}
-            </span>
-            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-sm);font-weight:500;">${escHtml(a.name)}</span>
-          </a>`).join('')}
-      </div>
-    </div>` : ''}
-
-    <!-- Progress -->
-    <div style="margin-bottom:var(--space-lg);">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-        <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-secondary);">Progress</span>
-        <span style="font-size:var(--text-sm);font-weight:800;color:var(--brand-primary);">${p.progress||0}%</span>
-      </div>
-      <div style="height:8px;background:var(--bg-elevated);border-radius:var(--radius-full);overflow:hidden;border:1px solid var(--border-default);">
-        <div style="height:100%;width:${p.progress||0}%;background:linear-gradient(90deg,var(--brand-primary),var(--brand-accent));border-radius:var(--radius-full);transition:width 0.6s;"></div>
-      </div>
-    </div>
-
     <!-- Task summary chips -->
     <div style="display:flex;gap:var(--space-sm);flex-wrap:wrap;margin-bottom:var(--space-lg);">
       <div style="flex:1;min-width:80px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);padding:10px 14px;text-align:center;">
         <div style="font-size:var(--text-xl);font-weight:800;color:var(--brand-primary);">${tasks.length}</div>
-        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;">Total Tasks</div>
+        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;">Total</div>
       </div>
       <div style="flex:1;min-width:80px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.20);border-radius:var(--radius-md);padding:10px 14px;text-align:center;">
         <div style="font-size:var(--text-xl);font-weight:800;color:#3B82F6;">${inprog}</div>
@@ -7634,12 +7563,16 @@ function openProjectDetail(id) {
       </div>
     </div>
 
-    <!-- Team members -->
-    ${members ? `
+    <!-- Progress bar -->
     <div style="margin-bottom:var(--space-lg);">
-      <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:var(--space-sm);">Team</div>
-      <div style="display:flex;flex-wrap:wrap;gap:var(--space-xs);">${members}</div>
-    </div>` : ''}
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-secondary);">Overall Progress</span>
+        <span style="font-size:var(--text-sm);font-weight:800;color:var(--brand-primary);">${pct}%</span>
+      </div>
+      <div style="height:8px;background:var(--bg-elevated);border-radius:var(--radius-full);overflow:hidden;border:1px solid var(--border-default);">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--brand-primary),var(--brand-accent));border-radius:var(--radius-full);transition:width 0.6s;"></div>
+      </div>
+    </div>
 
     <!-- Task list -->
     ${tasks.length ? `
@@ -7647,10 +7580,11 @@ function openProjectDetail(id) {
       <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:var(--space-sm);">Tasks</div>
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Title</th><th>Status</th><th>Priority</th><th>Due</th></tr></thead>
+          <thead><tr><th>Title</th><th>Brand</th><th>Status</th><th>Priority</th><th>Due</th></tr></thead>
           <tbody>
             ${tasks.map(t=>`<tr style="cursor:pointer;" onclick="closeModal('modal-project-detail-overlay');openTaskDrawer('${t.id}');">
               <td style="font-size:var(--text-sm);font-weight:500;">${escHtml(t.title)}</td>
+              <td style="font-size:var(--text-xs);color:var(--text-muted);">${escHtml(t.brand||'')}</td>
               <td>${_statusBadge(t.status)}</td>
               <td>${_priorityBadge(t.priority)}</td>
               <td style="font-size:var(--text-xs);font-weight:600;color:${t.due&&t.due<_today()&&t.status!=='Done'?'var(--brand-danger)':'var(--text-muted)'};">${t.due||''}</td>
@@ -7747,7 +7681,7 @@ function renderTasksPage() {
       </select>
       <select class="form-select" id="tasks-filter-project" onchange="_saveTaskFilterState();filterTasks()">
         <option value="">All projects</option>
-        ${_scopedProjects().map(p=>`<option value="${escHtml(p.name)}">${escHtml(p.name)}</option>`).join('')}
+        ${FIXED_PROJECTS.map(p=>`<option value="${p.id}">${escHtml(p.name)}</option>`).join('')}
       </select>
       ${admin ? `<select class="form-select" id="tasks-filter-assignee" onchange="_saveTaskFilterState();filterTasks()">
         <option value="">All members</option>
@@ -7814,7 +7748,7 @@ function filterTasks() {
   let tasks = _scopedTasks().filter(t => {
     if (q && !t.title.toLowerCase().includes(q)) return false;
     if (status && t.status !== status) return false;
-    if (project && t.project !== project && t.brand !== project) return false;
+    if (project && t.project !== project) return false;
     if (assignee && !t.assignees?.includes(assignee) && t.owner !== assignee) return false;
     return true;
   });
@@ -7880,7 +7814,7 @@ function _tasksListHTML(tasks) {
                   </td>
                   <td>
                     <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);${t.status==='Done'?'text-decoration:line-through;color:var(--text-muted)':''}">${escHtml(t.title)}</div>
-                    ${t.project ? `<div style="font-size:var(--text-xs);color:var(--text-muted);">${DS.projects.find(p=>p.id===t.project)?.name||''}</div>` : ''}
+                    ${t.project ? `<div style="font-size:var(--text-xs);color:var(--text-muted);">${FIXED_PROJECTS.find(p=>p.id===t.project)?.name||''}</div>` : ''}
                     ${(t.subtasks||[]).length ? (() => {
                       const _st = t.subtasks; const _dn = _st.filter(s=>s.status==='Done').length; const _pct = Math.round(_dn/_st.length*100);
                       return `<div style="margin-top:5px;">
@@ -8131,7 +8065,7 @@ function renderMyTasksPage() {
           <span style="font-size:13px;color:var(--text-muted);font-weight:700;min-width:20px;text-align:center;flex-shrink:0;">${i+1}</span>
           <div style="flex:1;min-width:0;">
             <div class="my-task-title${t.status==='Done'?' done':''}">${escHtml(t.title)}</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;">${t.brand||''}${t.project?` · ${DS.projects.find(p=>p.id===t.project)?.name||''}`:''}
+            <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;">${t.brand||''}${t.project?` · ${FIXED_PROJECTS.find(p=>p.id===t.project)?.name||''}`:''}
             </div>
             ${(t.subtasks||[]).length ? _activeStepChip(t.id, t.subtasks) : ''}
           </div>
@@ -8199,7 +8133,7 @@ function renderWatchingPage() {
     ${watched.length ? `
     <div style="display:flex;flex-direction:column;gap:var(--space-sm);">
       ${watched.map(t => {
-        const proj = DS.projects.find(p=>p.id===t.project||p.name===t.project)?.name || t.project || t.brand || '';
+        const proj = FIXED_PROJECTS.find(p=>p.id===t.project)?.name || t.brand || '';
         const overdue = t.due && t.due < _today() && t.status !== 'Done';
         return `
         <div class="my-task-row">
