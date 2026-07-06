@@ -2234,20 +2234,27 @@
       <div class="page-header">
         <div class="page-header-left">
           <h2>Brands &amp; Products</h2>
-          <p>WOTM, Narradora, Storehaus  product pipeline.</p>
-        </div>
-        <div class="page-header-actions">
-          <button class="btn btn-primary btn-sm" id="btn-add-product">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Add Product
-          </button>
+          <p>Task overview by brand / vertical.</p>
         </div>
       </div>
       <div id="brands-content">
         <div class="card">
-          <p class="text-secondary text-sm">Brand &amp; product data will load here.</p>
+          <p class="text-secondary text-sm">Loading brands...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Projects -->
+    <section class="page" id="page-projects">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h2>Projects</h2>
+          <p>All projects at IIPL. Click a project to see its tasks.</p>
+        </div>
+      </div>
+      <div id="projects-content">
+        <div class="card">
+          <p class="text-secondary text-sm">Loading projects...</p>
         </div>
       </div>
     </section>
@@ -2864,6 +2871,7 @@
     kanban:     'Kanban Board',
     team:       'Team',
     brands:     'Brands & Products',
+    projects:   'Projects',
     campaigns:  'Campaigns',
     vendors:    'Vendors',
     content:    'Content Calendar',
@@ -6783,7 +6791,8 @@ document.addEventListener('teamos:navigate', function(e) {
       else { renderTasksPage(); }
       break;
     case 'kanban':     renderKanbanPage();     break;
-    case 'brands':     renderProjectsPage();  break;
+    case 'brands':     renderBrandsPage();    break;
+    case 'projects':   renderProjectsPage();  break;
     case 'team':       renderTeamPage();       break;
     case 'campaigns':  renderCampaignsPage();  break;
     case 'vendors':    renderVendorsPage();    break;
@@ -7428,11 +7437,10 @@ function _renderSidebarProjects() {
   if (!projects.length) {
     html = `<div class="nav-subitem-empty">No projects yet</div>`;
   }
-  /* "View all projects" link for admins (Brands & Products page) */
-  if (typeof _canUserSeePage === 'function' && _canUserSeePage('brands')) {
-    html += `<div class="nav-subitem" onclick="navigateTo('brands')" style="color:var(--brand-primary);font-weight:600;">
-      <span class="nav-subitem-dot" style="background:transparent;"></span>View all 
-    </div>`;
+  /* "View all projects" link */
+  html += `<div class="nav-subitem" onclick="navigateTo('projects')" style="color:var(--brand-primary);font-weight:600;">
+    <span class="nav-subitem-dot" style="background:transparent;"></span>View all
+  </div>`;
   }
   list.innerHTML = html;
   /* Mirror into mobile nav */
@@ -7447,21 +7455,47 @@ function _renderSidebarProjects() {
 }
 
 function renderProjectsPage() {
-  const el = document.getElementById('brands-content');
+  const el = document.getElementById('projects-content');
   if (!el) return;
-
-  const hdr = document.querySelector('#page-brands .page-header-left p');
-  if (hdr) hdr.textContent = 'All projects at IIPL. Click a project to see its tasks.';
-
-  /* Hide "New Project" button — projects are now fixed */
-  const btn = document.getElementById('btn-add-product');
-  if (btn) btn.style.display = 'none';
-
   el.innerHTML = `
     <div class="grid-auto" id="projects-grid">
       ${FIXED_PROJECTS.map(p => _projectCard(p)).join('')}
     </div>
   `;
+}
+
+const _BRAND_LIST = ['WOTM','Narradora','Storehaus','Trading','Marketing Div.','Consultancy','Rewards','IIPL General','Misc'];
+
+function renderBrandsPage() {
+  const el = document.getElementById('brands-content');
+  if (!el) return;
+  const cards = _BRAND_LIST.map(b => {
+    const all     = DS.tasks.filter(t => t.brand === b);
+    const done    = all.filter(t => t.status === 'Done').length;
+    const inprog  = all.filter(t => t.status === 'In Progress').length;
+    const blocked = all.filter(t => t.status === 'Blocked').length;
+    const total   = all.length;
+    const pct     = total ? Math.round(done / total * 100) : 0;
+    return `
+      <div class="project-card" onclick="navigateTo('tasks');setTimeout(()=>{const sel=document.getElementById('filter-brand');if(sel){sel.value='${b}';filterTasks();}},200);">
+        <div class="project-card-header">
+          <div class="project-card-name">${escHtml(b)}</div>
+        </div>
+        <div class="project-card-meta" style="margin:6px 0 10px;">
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> ${total} task${total!==1?'s':''}</span>
+          ${inprog  ? `<span style="color:var(--brand-primary);">${inprog} in progress</span>` : ''}
+          ${blocked ? `<span style="color:var(--brand-danger);">${blocked} blocked</span>` : ''}
+        </div>
+        <div class="project-progress-bar">
+          <div class="project-progress-fill" style="width:${pct}%;"></div>
+        </div>
+        <div class="project-card-footer">
+          <span style="font-size:var(--text-xs);color:var(--text-muted);">${done} of ${total} done</span>
+          <span style="font-size:var(--text-xs);font-weight:700;color:var(--brand-primary);">${pct}%</span>
+        </div>
+      </div>`;
+  }).join('');
+  el.innerHTML = `<div class="grid-auto">${cards}</div>`;
 }
 
 function _projectCard(p) {
@@ -7606,7 +7640,7 @@ function deleteProject(id, name) {
   _saveLocal();
   GAS.deleteProject(id);
   _renderSidebarProjects();
-  if (window.TeamOS.currentPage === 'brands') renderProjectsPage();
+  if (window.TeamOS.currentPage === 'projects') renderProjectsPage();
   showToast({ type:'warning', title:'Project deleted', message: name });
 }
 
@@ -11406,7 +11440,8 @@ document.addEventListener('teamos:saveProject', function(e) {
   }
   _saveLocal();
   _renderSidebarProjects();
-  if (window.TeamOS.currentPage==='brands') renderProjectsPage();
+  if (window.TeamOS.currentPage==='projects') renderProjectsPage();
+  if (window.TeamOS.currentPage==='brands') renderBrandsPage();
 });
 
 /* Wire announce event to push real activity + save to DS */
@@ -11865,7 +11900,8 @@ document.addEventListener('teamos:ready', function() {
       else if (pg === 'mktcal')     _try(renderMktCalPage);
         else if (pg === 'attendance') _try(renderAttendancePage);
         else if (pg === 'team')       _try(renderTeamPage);
-        else if (pg === 'brands')     _try(renderProjectsPage);
+        else if (pg === 'brands')     _try(renderBrandsPage);
+        else if (pg === 'projects')   _try(renderProjectsPage);
         else if (pg === 'campaigns')  _try(renderCampaignsPage);
         else if (pg === 'vendors')    _try(renderVendorsPage);
         else if (pg === 'content')    _try(renderContentPage);
