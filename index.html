@@ -5,10 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>IIPL Command Center</title>
 
-  <!-- Google Fonts: Playfair Display (display serif) + Inter (UI sans-serif) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,500;0,6..12,600;0,6..12,700;0,6..12,800;1,6..12,400;1,6..12,600&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <!-- Fonts: Courier New (system) + Avenir Next LT Pro (system) -->
 
   <!-- EmailJS SDK (free, client-side email) -->
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -78,8 +75,8 @@
       --radius-full: 9999px;
 
       /* Typography */
-      --font-sans:  'Nunito Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
-      --font-serif: 'Playfair Display', Georgia, serif;
+      --font-sans:  'Courier New', Courier, monospace;
+      --font-serif: 'Avenir Next LT Pro', 'Avenir Next', 'Avenir', sans-serif;
       --font-mono:  'JetBrains Mono', 'Fira Code', monospace;
       --text-xs:   11px;
       --text-sm:   13px;
@@ -173,7 +170,7 @@
 
     h1, h2, h3, h4, h5, h6 {
       font-family: var(--font-serif);
-      font-weight: 700;
+      font-weight: 300;
       line-height: 1.3;
       color: var(--text-primary);
     }
@@ -236,7 +233,7 @@
     .auth-card h1 {
       font-family: var(--font-serif);
       font-size: var(--text-2xl);
-      font-weight: 700;
+      font-weight: 300;
       color: #FFFFFF;
       margin-bottom: var(--space-xs);
       letter-spacing: 0;
@@ -423,7 +420,7 @@
     .topbar-logo-text {
       font-family: var(--font-serif);
       font-size: var(--text-md);
-      font-weight: 700;
+      font-weight: 300;
       color: var(--text-primary);
       letter-spacing: 0;
     }
@@ -442,7 +439,7 @@
     .topbar-page-title {
       font-family: var(--font-serif);
       font-size: var(--text-base);
-      font-weight: 600;
+      font-weight: 300;
       color: var(--text-secondary);
     }
 
@@ -1228,7 +1225,7 @@
     .modal-title {
       font-family: var(--font-serif);
       font-size: var(--text-md);
-      font-weight: 700;
+      font-weight: 300;
       color: var(--text-primary);
     }
 
@@ -5969,7 +5966,7 @@
   .qc-widget-greeting {
     font-family: var(--font-serif);
     font-size: var(--text-xl);
-    font-weight: 700;
+    font-weight: 300;
     margin-bottom: 4px;
     letter-spacing: 0;
   }
@@ -6102,7 +6099,7 @@
   .section-title {
     font-family: var(--font-serif);
     font-size: var(--text-md);
-    font-weight: 700;
+    font-weight: 300;
     color: var(--text-primary);
     display: flex;
     align-items: center;
