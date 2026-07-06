@@ -4488,6 +4488,12 @@
         <div class="char-counter" id="announce-body-counter">0 / 600</div>
       </div>
 
+      <!-- Image URL -->
+      <div class="form-group">
+        <label class="form-label" for="announce-image">Image URL <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+        <input type="url" class="form-input" id="announce-image" placeholder="https://... paste image link" />
+      </div>
+
       <!-- Preview -->
       <div id="announce-preview-wrap" style="display:none;">
         <div class="modal-section-title" style="padding-top:0;margin-bottom:var(--space-sm);">Preview</div>
@@ -5841,7 +5847,7 @@
 
   /*  M9  Announce Modal  */
   function openAnnounceModal() {
-    ['announce-subject','announce-body'].forEach(id => document.getElementById(id).value = '');
+    ['announce-subject','announce-body','announce-image'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('announce-pin').value      = '';
     document.getElementById('announce-audience').value = 'All';
     document.getElementById('announce-type').value     = 'General';
@@ -5884,6 +5890,7 @@
       type:      document.getElementById('announce-type').value,
       audience:  document.getElementById('announce-audience').value,
       pinUntil:  document.getElementById('announce-pin').value,
+      imageUrl:  document.getElementById('announce-image').value.trim(),
       subject,
       body,
       by:        window.TeamOS.currentUser?.name || '',
@@ -6932,8 +6939,11 @@ function renderDashboard() {
   });
   const activeProjs  = FIXED_PROJECTS.length;
 
-  /*  Announcements  */
-  const annHtml = DS.announcements.length ? `
+  /*  Announcements — split active vs expired  */
+  const _today2 = _today();
+  const activeAnns  = DS.announcements.filter(a => !a.pinUntil || a.pinUntil >= _today2);
+  const expiredAnns = DS.announcements.filter(a => a.pinUntil && a.pinUntil < _today2);
+  const annHtml = (activeAnns.length || admin) ? `
     <div style="margin-bottom:var(--space-xl);">
       <div class="section-header">
         <div class="section-title">
@@ -6943,16 +6953,19 @@ function renderDashboard() {
         ${admin ? `<button class="btn btn-primary btn-sm" onclick="openAnnounceModal()">+ New</button>` : ''}
       </div>
       <div id="announcements-list">
-        ${DS.announcements.map(a => _annBanner(a, admin)).join('')}
+        ${activeAnns.length ? activeAnns.map(a => _annBanner(a, admin)).join('') : `<div class="card" style="text-align:center;padding:var(--space-xl);color:var(--text-muted);font-size:var(--text-sm);">No active announcements. Click "+ New" to broadcast.</div>`}
       </div>
-    </div>` : (admin ? `
-    <div style="margin-bottom:var(--space-xl);">
-      <div class="section-header">
-        <div class="section-title">Announcements</div>
-        <button class="btn btn-primary btn-sm" onclick="openAnnounceModal()">+ New</button>
-      </div>
-      <div class="card" style="text-align:center;padding:var(--space-xl);color:var(--text-muted);font-size:var(--text-sm);">No announcements yet. Click "+ New" to broadcast to your team.</div>
-    </div>` : '');
+      ${expiredAnns.length ? `
+      <div style="margin-top:var(--space-md);">
+        <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.textContent=this.textContent.includes('▸')?'▾ Past Announcements':'▸ Past Announcements';"
+          style="background:none;border:none;cursor:pointer;font-size:var(--text-xs);font-weight:700;color:var(--text-muted);padding:4px 0;letter-spacing:0.5px;text-transform:uppercase;">
+          ▸ Past Announcements (${expiredAnns.length})
+        </button>
+        <div style="display:none;">
+          ${expiredAnns.map(a => _annBanner(a, admin)).join('')}
+        </div>
+      </div>` : ''}
+    </div>` : '';
 
   /* ── TODAY'S UPDATES (visible to all — tasks table admin-only) ──────────── */
   const todayUpdatesHtml = (() => {
@@ -7360,7 +7373,8 @@ function _annBanner(a, showDelete) {
       <div class="ann-banner-body">
         <div class="ann-banner-subject">${escHtml(a.subject)}</div>
         <div class="ann-banner-text">${escHtml(a.body)}</div>
-        <div class="ann-banner-meta">${escHtml(a.by||'')}  ${escHtml(a.at||'')}</div>
+        ${a.imageUrl ? `<img src="${escHtml(a.imageUrl)}" alt="announcement image" style="margin-top:10px;max-width:100%;max-height:320px;border-radius:var(--radius-md);object-fit:cover;display:block;" onerror="this.style.display='none'" />` : ''}
+        <div class="ann-banner-meta">${escHtml(a.by||'')}  ${escHtml(a.at||'')}${a.pinUntil ? ` · Expires ${a.pinUntil}` : ''}</div>
       </div>
       ${showDelete ? `
       <button onclick="deleteAnnouncement('${a.id}')" title="Delete announcement"
@@ -7375,16 +7389,22 @@ function _annBanner(a, showDelete) {
     </div>`;
 }
 
-function deleteAnnouncement(id) {
+function _getDeletedAnnIds() {
+  try { return new Set(JSON.parse(localStorage.getItem('iipl_deleted_ann_ids') || '[]')); } catch(e) { return new Set(); }
+}
+function _addDeletedAnnId(id) {
+  const s = _getDeletedAnnIds(); s.add(id);
+  try { localStorage.setItem('iipl_deleted_ann_ids', JSON.stringify([...s])); } catch(e) {}
+}
+
+async function deleteAnnouncement(id) {
   if (!confirm('Delete this announcement?')) return;
-  /* Soft-delete: mark deleted:true in Supabase so other users' caches don't re-push it */
+  _addDeletedAnnId(id);
   const ann = DS.announcements.find(a => a.id === id);
-  if (ann && _inGAS()) { ann.deleted = true; GAS.saveAnnouncement(ann); }
+  if (ann && _inGAS()) { ann.deleted = true; await GAS.saveAnnouncement(ann); }
   DS.announcements = DS.announcements.filter(a => a.id !== id);
   _saveLocal();
-  /* Remove from DOM instantly */
   document.getElementById('ann-'+id)?.remove();
-  /* If list is now empty, re-render dashboard */
   const list = document.getElementById('announcements-list');
   if (list && !list.children.length) renderDashboard();
   showToast({ type:'warning', title:'Announcement deleted' });
@@ -7810,7 +7830,7 @@ function _tasksListHTML(tasks) {
   statusOrder.forEach(grp => {
     let grpTasks = tasks.filter(t => grp.match(t.status));
     if (!grpTasks.length) return;
-    if (grp.key === 'To Do') grpTasks.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+    grpTasks.sort((a,b) => (b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||''));
     html += `
       <div style="margin-bottom:20px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 0;">
@@ -7845,6 +7865,7 @@ function _tasksListHTML(tasks) {
                   <td>
                     <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);${t.status==='Done'?'text-decoration:line-through;color:var(--text-muted)':''}">${escHtml(t.title)}</div>
                     ${t.project ? `<div style="font-size:var(--text-xs);color:var(--text-muted);">${FIXED_PROJECTS.find(p=>p.id===t.project)?.name||''}</div>` : ''}
+                    ${(t.updatedAt||t.createdAt) ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Updated ${_timeAgo(t.updatedAt||t.createdAt)}</div>` : ''}
                     ${(t.subtasks||[]).length ? (() => {
                       const _st = t.subtasks; const _dn = _st.filter(s=>s.status==='Done').length; const _pct = Math.round(_dn/_st.length*100);
                       return `<div style="margin-top:5px;">
@@ -7871,8 +7892,9 @@ function _tasksListHTML(tasks) {
                       <button class="action-icon-btn" title="${(t.watchers||[]).includes(window.TeamOS?.currentUser?.initials)?'Unwatch':'Watch'}" onclick="event.stopPropagation();toggleWatcher('${t.id}');renderTasksPage&&renderTasksPage();" style="color:${(t.watchers||[]).includes(window.TeamOS?.currentUser?.initials)?'var(--brand-primary)':''};">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       </button>
-                      <button class="action-icon-btn" title="Comment" onclick="event.stopPropagation();openCommentModal('${t.id}','${escHtml(t.title)}')">
+                      <button class="action-icon-btn" title="Comment" onclick="event.stopPropagation();openCommentModal('${t.id}','${escHtml(t.title)}')" style="position:relative;${_taskHasNewComments(t)?'color:var(--brand-primary);':''} ">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        ${_taskHasNewComments(t) ? `<span style="position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:#F59E0B;border:1.5px solid var(--bg-surface);"></span>` : ''}
                       </button>
                       ${isAdmin() ? `<button class="action-icon-btn" title="Duplicate task" onclick="event.stopPropagation();duplicateTask('${t.id}')">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -11716,6 +11738,19 @@ function _notifyDoneAfterApproval(t, approverName) {
   }
 }
 
+function _timeAgo(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)   return 'just now';
+  if (m < 60)  return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24)  return h + 'h ago';
+  const d = Math.floor(h / 24);
+  if (d < 7)   return d + 'd ago';
+  return new Date(iso).toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+}
+
 function _today() {
   return new Date().toISOString().slice(0,10);
 }
@@ -12564,8 +12599,11 @@ const GAS = {
         return [...sbItems, ...localOnly];
       }
       DS.calls = _mergeAndPush(callsRes, DS.calls, i => GAS.saveCall(i));
-      /* Filter soft-deleted announcements so they don't re-appear after deletion */
-      if (annRes?.data) annRes.data = annRes.data.filter(r => !r.data?.deleted);
+      /* Filter soft-deleted announcements and locally-deleted IDs so they don't re-appear */
+      if (annRes?.data) {
+        const _delIds = _getDeletedAnnIds();
+        annRes.data = annRes.data.filter(r => !r.data?.deleted && !_delIds.has(r.data?.id));
+      }
       DS.announcements = _mergeAndPush(annRes, DS.announcements, i => GAS.saveAnnouncement(i));
       DS.grievances = _mergeAndPush(grvRes, DS.grievances, i => GAS.saveGrievance(i));
       DS.mktEvents = _mergeAndPush(mktRes, DS.mktEvents, i => GAS.saveMktEvent(i));
@@ -13139,9 +13177,24 @@ document.addEventListener('teamos:ready', _updateNotifBadge);
 window._drawerTaskId = null;
 window._drawerTask   = null;
 
+function _getTaskViewed() {
+  try { return JSON.parse(localStorage.getItem('iipl_task_viewed') || '{}'); } catch(e) { return {}; }
+}
+function _markTaskViewed(id) {
+  const v = _getTaskViewed(); v[id] = new Date().toISOString();
+  try { localStorage.setItem('iipl_task_viewed', JSON.stringify(v)); } catch(e) {}
+}
+function _taskHasNewComments(t) {
+  if (!t.comments?.length) return false;
+  const viewed = _getTaskViewed()[t.id];
+  if (!viewed) return true;
+  return t.comments.some(c => c.ts && c.ts > viewed);
+}
+
 function openTaskDrawer(id) {
   const t = (window.TeamOS.DS?.tasks || []).find(x=>x.id===id);
   if (!t) return;
+  _markTaskViewed(id);
   window._drawerTaskId = id;
   window._drawerTask   = t;
 
@@ -13199,12 +13252,23 @@ function openTaskDrawer(id) {
       const avatar = creator
         ? `<div style="width:26px;height:26px;border-radius:50%;background:${creator.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;flex-shrink:0;">${creator.initials}</div>`
         : `<div style="width:26px;height:26px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--border-default);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text-muted);flex-shrink:0;">?</div>`;
-      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);">
-        ${avatar}
-        <div>
-          <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:1px;">Created by</div>
-          <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);">${escHtml(name)}${createdDate ? `<span style="font-weight:400;color:var(--text-muted);margin-left:6px;">${createdDate}</span>` : ''}</div>
+      return `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);flex:1;min-width:140px;">
+          ${avatar}
+          <div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:1px;">Created by</div>
+            <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);">${escHtml(name)}${createdDate ? `<span style="font-weight:400;color:var(--text-muted);margin-left:6px;">${createdDate}</span>` : ''}</div>
+          </div>
         </div>
+        ${t.updatedAt ? `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);flex:1;min-width:140px;">
+          <div style="width:26px;height:26px;border-radius:50%;background:var(--bg-surface);border:1px solid var(--border-default);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:1px;">Last updated</div>
+            <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);">${_timeAgo(t.updatedAt)}<span style="font-weight:400;color:var(--text-muted);margin-left:6px;">${new Date(t.updatedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</span></div>
+          </div>
+        </div>` : ''}
       </div>`;
     })()}
 
