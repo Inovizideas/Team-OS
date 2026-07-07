@@ -7311,6 +7311,7 @@ function renderDashboard() {
                 <div style="width:8px;height:8px;border-radius:50%;background:${{Blocked:'#EF4444','In Progress':'#3B82F6','In Review':'#F59E0B','To Do':'#94A3B8','Changes Requested':'#EA580C'}[t.status]||'#94A3B8'};flex-shrink:0;"></div>
                 <div style="flex:1;min-width:0;">
                   <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(t.title)}</div>
+                  ${_latestCommentLine(t)}
                 </div>
                 ${_statusBadge(t.status)}
                 ${_priorityBadge(t.priority)}
