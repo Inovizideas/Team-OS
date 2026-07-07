@@ -8254,12 +8254,20 @@ function renderMyTasksPage() {
     if (pa !== pb) return pa - pb;
     return DS.tasks.indexOf(a) - DS.tasks.indexOf(b);
   });
+  const _isRecurring = t => t.recurrence && t.recurrence !== 'None';
+  const openCount     = myTasks.filter(t => !_isDone(t.status) && !_isRecurring(t)).length;
+  const recurringCount= myTasks.filter(t => !_isDone(t.status) &&  _isRecurring(t)).length;
+  const doneCount     = myTasks.filter(t =>  _isDone(t.status)).length;
+  const summaryParts  = [];
+  if (openCount)      summaryParts.push(`<span style="color:var(--text-primary);font-weight:600;">${openCount} open</span>`);
+  if (recurringCount) summaryParts.push(`<span style="color:#A78BFA;font-weight:600;">${recurringCount} recurring</span>`);
+  if (doneCount)      summaryParts.push(`<span style="color:var(--brand-success);font-weight:600;">${doneCount} done</span>`);
 
   el.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
         <h2>My Tasks</h2>
-        <p>${myTasks.length} task${myTasks.length!==1?'s':''} assigned to you.</p>
+        <p>${summaryParts.join('<span style="color:var(--text-muted);"> · </span>')} &nbsp;<span style="color:var(--text-muted);font-size:var(--text-xs);">(${myTasks.length} total)</span></p>
       </div>
       <div class="page-header-actions">
         <button class="btn btn-primary btn-sm" onclick="openTaskModal({owner:'${uid}',assignees:['${uid}']})">+ Add Task</button>
@@ -8282,6 +8290,7 @@ function renderMyTasksPage() {
             ${(t.subtasks||[]).length ? _activeStepChip(t.id, t.subtasks) : ''}
           </div>
           <div class="my-task-meta">
+            ${_isRecurring(t) ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(167,139,250,0.15);color:#A78BFA;border:1px solid rgba(167,139,250,0.35);white-space:nowrap;">↻ Recurring</span>` : ''}
             ${_priorityBadge(t.priority)}
             ${_statusBadge(t.status)}
             ${t.due ? `<span style="font-size:var(--text-xs);font-weight:600;color:${t.due<_today()&&t.status!=='Done'?'var(--brand-danger)':'var(--text-muted)'};">${t.due}</span>` : ''}
