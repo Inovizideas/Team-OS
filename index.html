@@ -8029,11 +8029,7 @@ function _tasksListHTML(tasks) {
                         ${_activeStepChip(t.id, _st)}
                       </div>`;
                     })() : ''}
-                    ${(t.comments?.length) ? (() => {
-                      const lc = t.comments[t.comments.length-1];
-                      const lcText = (lc.text||'').substring(0,70) + ((lc.text||'').length>70?'…':'');
-                      return `<div style="font-size:10px;color:var(--text-muted);margin-top:4px;display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:260px;"><b>${escHtml(lc.author||lc.initials||'')}</b>: ${escHtml(lcText)}</span></div>`;
-                    })() : ''}
+                    ${_latestCommentLine(t)}
                   </td>
                   <td>${_priorityBadge(t.priority)}</td>
                   <td><span style="font-size:var(--text-xs);color:var(--text-secondary);">${t.brand||''}</span></td>
@@ -8300,11 +8296,7 @@ function renderMyTasksPage() {
             <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;">${t.brand||''}${t.project?` · ${FIXED_PROJECTS.find(p=>p.id===t.project)?.name||''}`:''}
             </div>
             ${(t.subtasks||[]).length ? _activeStepChip(t.id, t.subtasks) : ''}
-            ${(t.comments?.length) ? (() => {
-              const lc = t.comments[t.comments.length-1];
-              const lcText = (lc.text||'').substring(0,70) + ((lc.text||'').length>70?'…':'');
-              return `<div style="font-size:10px;color:var(--text-muted);margin-top:4px;display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:300px;"><b>${escHtml(lc.author||lc.initials||'')}</b>: ${escHtml(lcText)}</span></div>`;
-            })() : ''}
+            ${_latestCommentLine(t)}
           </div>
           <div class="my-task-meta">
             ${_isRecurring(t) ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(167,139,250,0.15);color:#A78BFA;border:1px solid rgba(167,139,250,0.35);white-space:nowrap;">↻ Recurring</span>` : ''}
@@ -8375,6 +8367,7 @@ function renderWatchingPage() {
           <div style="flex:1;min-width:0;cursor:pointer;" onclick="openTaskDrawer('${t.id}')">
             <div class="my-task-title${t.status==='Done'?' done':''}">${escHtml(t.title)}</div>
             <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;">${escHtml(proj)}</div>
+            ${_latestCommentLine(t)}
           </div>
           <div class="my-task-meta">
             ${_statusBadge(t.status)}
@@ -11924,6 +11917,16 @@ function _notifyDoneAfterApproval(t, approverName) {
   }
 }
 
+function _latestCommentLine(t) {
+  if (!t.comments?.length) return '';
+  const lc = t.comments[t.comments.length - 1];
+  const txt = (lc.text || '').substring(0, 70) + ((lc.text || '').length > 70 ? '…' : '');
+  return `<div style="font-size:10px;color:var(--text-muted);margin-top:4px;display:flex;align-items:center;gap:4px;">
+    <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:320px;"><b>${escHtml(lc.author||lc.initials||'')}</b>: ${escHtml(txt)}</span>
+  </div>`;
+}
+
 function _timeAgo(iso) {
   if (!iso) return '';
   const diff = Date.now() - new Date(iso).getTime();
@@ -14606,6 +14609,7 @@ function renderMiscTasksPage() {
             <td>
               <div style="font-size:var(--text-sm);font-weight:600;${t.status==='Done'?'text-decoration:line-through;color:var(--text-muted)':''}">${escHtml(t.title)}</div>
               ${_subtaskMini(t.subtasks)}
+              ${_latestCommentLine(t)}
             </td>
             <td>${_statusBadge(t.status)}</td>
             <td>${_priorityBadge(t.priority)}</td>
@@ -14668,6 +14672,7 @@ function renderRecurringPage() {
                 <div style="font-weight:600;font-size:var(--text-sm);">${escHtml(t.title)}</div>
                 <div style="font-size:var(--text-xs);color:var(--text-muted);">${t.brand||''}${t.project?' · '+t.project:''}</div>
                 ${_subtaskMini(t.subtasks)}
+                ${_latestCommentLine(t)}
               </td>
               <td><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:var(--radius-full);background:${(freqColor[t.recurrence.split(':')[0]]||'#6B7280')}20;color:${freqColor[t.recurrence.split(':')[0]]||'#6B7280'};">🔁 ${(window._recurLabel||((r)=>r))(t.recurrence)}</span></td>
               <td>${_assigneeAvatars(t.assignees||[])}</td>
