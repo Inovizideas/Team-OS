@@ -9379,7 +9379,7 @@ function _openScheduleCallModal(prefillType) {
       <input id="call-meet-link" type="url" class="form-control" placeholder="Paste an existing Meet / Zoom link here" style="font-size:var(--text-sm);width:100%;margin-bottom:6px;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button onclick="(function(){ window.open('https://meet.google.com/new','_blank'); setTimeout(()=>{ const hint=document.getElementById('call-meet-link-hint'); if(hint) hint.style.display=''; },800); })()" style="padding:6px 12px;font-size:var(--text-xs);font-weight:700;background:rgba(66,133,244,0.12);color:#4285F4;border:1px solid rgba(66,133,244,0.30);border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;" title="Opens Google Meet — copy the link and paste it above">
-          🎥 Create new Meet now
+          🎥 Start Meet immediately
         </button>
         <button onclick="(function(){ document.getElementById('call-meet-link').focus(); document.getElementById('call-meet-link').select(); })()" style="padding:6px 12px;font-size:var(--text-xs);font-weight:700;background:rgba(66,133,244,0.06);color:#4285F4;border:1px solid rgba(66,133,244,0.20);border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;" title="Paste a pre-scheduled Meet or Zoom link">
           🔗 Paste existing link
