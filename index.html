@@ -14116,7 +14116,9 @@ function _listDrop(e, targetId, page) {
   DS.tasks.splice(ti, 0, DS.tasks.splice(si, 1)[0]);
   _saveLocal();
   _listDragSrc = null;
-  if (page === 'mytasks') renderMyTasksPage();
+  if (page === 'mytasks')   renderMyTasksPage();
+  else if (page === 'misctasks')  renderMiscTasksPage();
+  else if (page === 'recurring')  renderRecurringPage();
   else renderTasksPage();
 }
 
@@ -14584,9 +14586,17 @@ function renderMiscTasksPage() {
   const uid   = window.TeamOS.currentUser?.initials || '';
   const admin = isAdmin();
   /* Misc = brand is 'Misc' OR no brand AND no project */
-  const tasks = _scopedTasks().filter(t =>
+  const _miscRaw = _scopedTasks().filter(t =>
     t.brand === 'Misc' || (!t.brand && !t.project)
   );
+  const _miscPOrd = {Critical:0,High:1,Medium:2,Low:3};
+  const _miscDone = s => s==='Done'||s==='Cancelled';
+  const tasks = [..._miscRaw].sort((a,b) => {
+    if (_miscDone(a.status) !== _miscDone(b.status)) return _miscDone(a.status) ? 1 : -1;
+    const pa = _miscPOrd[a.priority]??4, pb = _miscPOrd[b.priority]??4;
+    if (pa !== pb) return pa - pb;
+    return DS.tasks.indexOf(a) - DS.tasks.indexOf(b);
+  });
   el.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
@@ -14605,12 +14615,16 @@ function renderMiscTasksPage() {
           <th>Task</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Due</th><th></th>
         </tr></thead>
         <tbody>
-          ${tasks.map((t,i) => `<tr style="cursor:pointer;" onclick="openTaskDrawer('${t.id}')">
+          ${tasks.map((t,i) => `<tr style="cursor:pointer;" onclick="openTaskDrawer('${t.id}')"
+            draggable="${admin?'true':'false'}"
+            ondragstart="_listDragStart(event,'${t.id}')"
+            ondragover="_listDragOver(event)"
+            ondrop="_listDrop(event,'${t.id}','misctasks')"
+            ondragend="_listDragEnd(event)">
             <td>
               <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
                 <span style="font-size:13px;color:var(--text-muted);font-weight:700;">${i+1}</span>
-                ${admin?`<button onclick="event.stopPropagation();reorderTask('${t.id}',-1)" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:10px;padding:0;" ${i===0?'disabled':''}>▲</button>
-                <button onclick="event.stopPropagation();reorderTask('${t.id}',1)" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:10px;padding:0;" ${i===tasks.length-1?'disabled':''}>▼</button>`:''}
+                ${admin?`<span title="Drag to reorder" style="cursor:grab;color:var(--text-muted);font-size:13px;line-height:1;" onclick="event.stopPropagation()">⠿</span>`:''}
               </div>
             </td>
             <td>
@@ -14646,7 +14660,15 @@ function renderRecurringPage() {
   const el = document.getElementById('page-recurring');
   if (!el) return;
   const admin = isAdmin();
-  const tasks = _scopedTasks().filter(t => t.recurrence && t.recurrence !== 'None');
+  const _recRaw = _scopedTasks().filter(t => t.recurrence && t.recurrence !== 'None');
+  const _recPOrd = {Critical:0,High:1,Medium:2,Low:3};
+  const _recDone = s => s==='Done'||s==='Cancelled';
+  const tasks = [..._recRaw].sort((a,b) => {
+    if (_recDone(a.status) !== _recDone(b.status)) return _recDone(a.status) ? 1 : -1;
+    const pa = _recPOrd[a.priority]??4, pb = _recPOrd[b.priority]??4;
+    if (pa !== pb) return pa - pb;
+    return DS.tasks.indexOf(a) - DS.tasks.indexOf(b);
+  });
 
   /* Update sidebar badge */
   const badge = document.getElementById('nav-badge-recurring');
@@ -14674,7 +14696,12 @@ function renderRecurringPage() {
           ${tasks.map(t => {
             const isOverdue = t.due && t.due < _today() && t.status !== 'Done';
             const isDueToday = t.due === _today() && t.status !== 'Done';
-            return `<tr style="cursor:pointer;${isOverdue?'background:rgba(239,68,68,0.04)':''}${isDueToday?'background:rgba(240,180,41,0.06)':''}" onclick="openTaskDrawer('${t.id}')">
+            return `<tr style="cursor:pointer;${isOverdue?'background:rgba(239,68,68,0.04)':''}${isDueToday?'background:rgba(240,180,41,0.06)':''}" onclick="openTaskDrawer('${t.id}')"
+              draggable="${admin?'true':'false'}"
+              ondragstart="_listDragStart(event,'${t.id}')"
+              ondragover="_listDragOver(event)"
+              ondrop="_listDrop(event,'${t.id}','recurring')"
+              ondragend="_listDragEnd(event)">
               <td>
                 <div style="font-weight:600;font-size:var(--text-sm);">${escHtml(t.title)}</div>
                 <div style="font-size:var(--text-xs);color:var(--text-muted);">${t.brand||''}${t.project?' · '+t.project:''}</div>
