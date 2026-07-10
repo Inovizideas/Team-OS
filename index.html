@@ -7100,7 +7100,8 @@ function renderDashboard() {
 
   /* ── TODAY'S UPDATES (visible to all — tasks table admin-only) ──────────── */
   const todayUpdatesHtml = (() => {
-    const todayStr = _today();
+    const todayStr = new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'});
+    const _toISTTime = iso => iso ? new Date(iso).toLocaleTimeString('en-IN', {timeZone:'Asia/Kolkata', hour:'2-digit', minute:'2-digit', hour12:true}) : '';
     /* Check-ins today */
     const checkinRows = DS.team.map(m => {
       const rec = (DS.checkins[m.id]||{})[todayStr] || {};
@@ -7123,14 +7124,14 @@ function renderDashboard() {
       </tr>`;
     }).filter(Boolean).join('');
     /* Tasks updated today */
-    const todayTasks = DS.tasks.filter(t => (t.updatedAt||t.createdAt||'').startsWith(todayStr)).slice(0,8);
+    const todayTasks = DS.tasks.filter(t => { const ts=t.updatedAt||t.createdAt; return ts && new Date(ts).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'})===todayStr; }).slice(0,8);
     const taskRows = todayTasks.map(t => {
       const owner = TEAM_MEMBERS.find(m=>m.id===t.owner);
       return `<tr style="cursor:pointer;" onclick="openTaskDrawer('${t.id}')">
         <td style="font-size:var(--text-sm);font-weight:600;max-width:200px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escHtml(t.title)}</td>
         <td>${owner?`<div style="display:flex;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;background:${owner.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;">${owner.initials}</div><span style="font-size:var(--text-xs);">${owner.name.split(' ')[0]}</span></div>`:''}</td>
         <td>${_statusBadge(t.status)}</td>
-        <td style="font-size:var(--text-xs);color:var(--text-muted);">${_formatCallTime((t.updatedAt||t.createdAt||'').slice(11,16))}</td>
+        <td style="font-size:var(--text-xs);color:var(--text-muted);">${_toISTTime(t.updatedAt||t.createdAt)}</td>
       </tr>`;
     }).join('');
     return `
