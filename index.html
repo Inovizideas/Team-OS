@@ -15024,7 +15024,7 @@ async function downloadEodExcel() {
   try {
     if (_inGAS()) {
       const sb = _getSB();
-      let q = sb.from('eod_reports').select('*').gte('date', fromDate).lte('date', toDate).eq('is_draft', false).order('date', {ascending:false}).order('created_at', {ascending:false});
+      let q = sb.from('eod_reports').select('*').gte('date', fromDate).lte('date', toDate).neq('is_draft', true).order('date', {ascending:false}).order('created_at', {ascending:false});
       if (member) q = q.eq('user_name', member);
       const { data, error } = await q;
       if (error) throw error;
