@@ -11352,40 +11352,7 @@ function renderReportsPage() {
       </div>
     </div>
 
-    <!-- SECTION 2: Admins only — Performance Summary -->
-    ${admin ? `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:var(--space-md);">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--brand-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-      <span style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);">Performance Summary</span>
-      <span style="font-size:10px;padding:2px 8px;background:rgba(240,180,41,0.12);color:var(--brand-primary);border:1px solid rgba(240,180,41,0.3);border-radius:20px;">Admin Only</span>
-    </div>
-    <div class="grid-2" style="margin-bottom:var(--space-xl);">
-      <div class="card">
-        <div class="card-header"><div class="card-title">Task Completion</div></div>
-        <div style="text-align:center;padding:var(--space-md) 0;">
-          <div style="font-size:var(--text-3xl);font-weight:800;color:var(--brand-primary);letter-spacing:-1px;">${completion}%</div>
-          <div style="font-size:var(--text-sm);color:var(--text-muted);margin-top:4px;">${doneTasks} of ${totalTasks} tasks done</div>
-          <div style="height:8px;background:var(--bg-elevated);border-radius:var(--radius-full);margin-top:var(--space-md);border:1px solid var(--border-default);overflow:hidden;">
-            <div style="height:100%;width:${completion}%;background:linear-gradient(90deg,var(--brand-primary),var(--brand-accent));border-radius:var(--radius-full);transition:width 0.6s;"></div>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Tasks by Status</div></div>
-        ${['To Do','In Progress','In Review','Done','Blocked'].map(s => {
-          const n = DS.tasks.filter(t=>t.status===s).length;
-          const pct = totalTasks ? Math.round((n/totalTasks)*100) : 0;
-          const col = {'To Do':'#94A3B8','In Progress':'#3B82F6','In Review':'#F59E0B','Done':'#10B981','Blocked':'#EF4444'}[s];
-          return `<div style="display:flex;align-items:center;gap:var(--space-sm);margin-bottom:8px;">
-            <span style="font-size:var(--text-xs);width:80px;color:var(--text-secondary);">${s}</span>
-            <div style="flex:1;height:6px;background:var(--bg-elevated);border-radius:var(--radius-full);overflow:hidden;">
-              <div style="height:100%;width:${pct}%;background:${col};border-radius:var(--radius-full);"></div>
-            </div>
-            <span style="font-size:var(--text-xs);font-weight:700;color:var(--text-primary);width:20px;text-align:right;">${n}</span>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>` : ''}`;
+  `;
 }
 
 /*  12. SETTINGS / ADMIN PAGE  */
@@ -14370,6 +14337,7 @@ window.renderAdminPage = function() {
     <!-- Tab bar -->
     <div class="admin-tab-bar">
       <button class="admin-tab active" onclick="switchAdminTab('overview',this)">Overview</button>
+      <button class="admin-tab" onclick="switchAdminTab('performance',this)">Performance</button>
       <button class="admin-tab" onclick="switchAdminTab('engagement',this)">Engagement</button>
       <button class="admin-tab" onclick="switchAdminTab('loginlog',this)">Login Log</button>
       <button class="admin-tab" onclick="switchAdminTab('eodreports',this)">EOD Reports</button>
@@ -14377,11 +14345,12 @@ window.renderAdminPage = function() {
     </div>
 
     <!-- Tab panes -->
-    <div id="admin-tab-overview"    class="admin-tab-pane active">${_adminOverviewHTML()}</div>
-    <div id="admin-tab-engagement"  class="admin-tab-pane">${_adminEngagementHTML()}</div>
-    <div id="admin-tab-loginlog"    class="admin-tab-pane">${_adminLoginLogHTML()}</div>
-    <div id="admin-tab-eodreports"  class="admin-tab-pane">${_adminEodReportsHTML()}</div>
-    <div id="admin-tab-settings"    class="admin-tab-pane">${_adminSettingsHTML()}</div>
+    <div id="admin-tab-overview"     class="admin-tab-pane active">${_adminOverviewHTML()}</div>
+    <div id="admin-tab-performance"  class="admin-tab-pane">${_adminPerformanceHTML()}</div>
+    <div id="admin-tab-engagement"   class="admin-tab-pane">${_adminEngagementHTML()}</div>
+    <div id="admin-tab-loginlog"     class="admin-tab-pane">${_adminLoginLogHTML()}</div>
+    <div id="admin-tab-eodreports"   class="admin-tab-pane">${_adminEodReportsHTML()}</div>
+    <div id="admin-tab-settings"     class="admin-tab-pane">${_adminSettingsHTML()}</div>
   `;
 };
 
@@ -14390,6 +14359,88 @@ function switchAdminTab(name, btn) {
   document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
   document.getElementById(`admin-tab-${name}`)?.classList.add('active');
   btn.classList.add('active');
+}
+
+function _adminPerformanceHTML() {
+  const DS = window.TeamOS.DS;
+  const totalTasks = DS.tasks.length;
+  const doneTasks  = DS.tasks.filter(t=>t.status==='Done').length;
+  const completion = totalTasks ? Math.round((doneTasks/totalTasks)*100) : 0;
+
+  /* Tasks per member */
+  const memberStats = TEAM_MEMBERS.map(m => {
+    const mine  = DS.tasks.filter(t=>t.owner===m.id);
+    const done  = mine.filter(t=>t.status==='Done').length;
+    const open  = mine.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length;
+    const overdue = mine.filter(t=>t.due&&t.due<_today()&&t.status!=='Done'&&t.status!=='Cancelled').length;
+    return { m, total:mine.length, done, open, overdue };
+  }).filter(s=>s.total>0).sort((a,b)=>b.total-a.total);
+
+  return `
+    <div style="margin-bottom:var(--space-xl);">
+      <div class="grid-2" style="margin-bottom:var(--space-lg);">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Overall Task Completion</div></div>
+          <div style="text-align:center;padding:var(--space-md) 0;">
+            <div style="font-size:var(--text-3xl);font-weight:800;color:var(--brand-primary);letter-spacing:-1px;">${completion}%</div>
+            <div style="font-size:var(--text-sm);color:var(--text-muted);margin-top:4px;">${doneTasks} of ${totalTasks} tasks done</div>
+            <div style="height:8px;background:var(--bg-elevated);border-radius:var(--radius-full);margin-top:var(--space-md);border:1px solid var(--border-default);overflow:hidden;">
+              <div style="height:100%;width:${completion}%;background:linear-gradient(90deg,var(--brand-primary),var(--brand-accent));border-radius:var(--radius-full);transition:width 0.6s;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Tasks by Status</div></div>
+          <div style="padding:var(--space-sm) 0;">
+            ${['To Do','In Progress','In Review','Done','Blocked','Cancelled'].map(s => {
+              const n = DS.tasks.filter(t=>t.status===s).length;
+              if (!n) return '';
+              const pct = Math.round((n/totalTasks)*100);
+              const col = {'To Do':'#94A3B8','In Progress':'#3B82F6','In Review':'#F59E0B','Done':'#10B981','Blocked':'#EF4444','Cancelled':'#6B7280'}[s];
+              return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="font-size:var(--text-xs);width:85px;color:var(--text-secondary);flex-shrink:0;">${s}</span>
+                <div style="flex:1;height:6px;background:var(--bg-elevated);border-radius:var(--radius-full);overflow:hidden;">
+                  <div style="height:100%;width:${pct}%;background:${col};border-radius:var(--radius-full);"></div>
+                </div>
+                <span style="font-size:var(--text-xs);font-weight:700;color:var(--text-primary);width:24px;text-align:right;">${n}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Workload by Team Member</div></div>
+        <div class="table-wrapper" style="border:none;border-radius:0;">
+          <table>
+            <thead><tr><th>Member</th><th>Total</th><th>Open</th><th>Done</th><th>Overdue</th><th>Completion</th></tr></thead>
+            <tbody>
+              ${memberStats.map(({m,total,done,open,overdue})=>{
+                const pct = total ? Math.round((done/total)*100) : 0;
+                return `<tr>
+                  <td><div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:26px;height:26px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:white;flex-shrink:0;">${m.initials}</div>
+                    <span style="font-size:var(--text-sm);font-weight:600;">${m.name}</span>
+                  </div></td>
+                  <td style="font-size:var(--text-sm);font-weight:700;">${total}</td>
+                  <td style="font-size:var(--text-sm);">${open}</td>
+                  <td style="font-size:var(--text-sm);color:#10B981;font-weight:600;">${done}</td>
+                  <td style="font-size:var(--text-sm);color:${overdue?'#EF4444':'var(--text-muted)'};">${overdue||'—'}</td>
+                  <td style="min-width:120px;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <div style="flex:1;height:5px;background:var(--bg-elevated);border-radius:var(--radius-full);overflow:hidden;">
+                        <div style="height:100%;width:${pct}%;background:var(--brand-primary);border-radius:var(--radius-full);"></div>
+                      </div>
+                      <span style="font-size:var(--text-xs);font-weight:700;color:var(--brand-primary);width:30px;">${pct}%</span>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
 }
 
 function _adminOverviewHTML() {
