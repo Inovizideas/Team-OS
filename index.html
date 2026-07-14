@@ -1945,7 +1945,7 @@
       Finance
     </div>
 
-    <span class="nav-section-label">Admin</span>
+    <span class="nav-section-label">Reports</span>
 
     <div class="nav-item" data-page="reports" onclick="navigateTo('reports')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1954,6 +1954,8 @@
       </svg>
       Reports
     </div>
+
+    <span class="nav-section-label">Admin</span>
 
     <div class="nav-item" data-page="eod" onclick="navigateTo('eod')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2601,7 +2603,7 @@
     Finance
   </div>
 
-  <span class="nav-section-label">Admin</span>
+  <span class="nav-section-label">Reports</span>
 
   <div class="nav-item" data-page="reports" onclick="navigateTo('reports'); closeMobileNav();">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2610,6 +2612,8 @@
     </svg>
     Reports
   </div>
+
+  <span class="nav-section-label">Admin</span>
 
   <div class="nav-item" data-page="eod" onclick="navigateTo('eod'); closeMobileNav();">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2833,7 +2837,7 @@
       vendors:    admin,
       content:    admin || uid === 'AR' || uid === 'RL',
       finance:    admin || uid === 'HC' || uid === 'AG' || uid === 'DC',
-      reports:    admin,
+      reports:    true,
       admin:      admin,
       eod:        admin,
       misctasks:  true,
@@ -11325,20 +11329,35 @@ function deleteBill(id) {
 function renderReportsPage() {
   const el = document.getElementById('reports-content');
   if (!el) return;
-  const totalTasks  = DS.tasks.length;
-  const doneTasks   = DS.tasks.filter(t=>t.status==='Done').length;
-  const completion  = totalTasks ? Math.round((doneTasks/totalTasks)*100) : 0;
+  const admin = isAdmin();
+  const totalTasks = DS.tasks.length;
+  const doneTasks  = DS.tasks.filter(t=>t.status==='Done').length;
+  const completion = totalTasks ? Math.round((doneTasks/totalTasks)*100) : 0;
 
   el.innerHTML = `
+    <!-- SECTION 1: Visible to ALL team members -->
     <div class="card" style="margin-bottom:var(--space-xl);">
-      <div class="card-header"><div class="card-title">Full Reports</div></div>
-      <div style="padding:var(--space-md) 0 var(--space-sm);">
-        <p style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-md);">This is where you view Command Center data on Google Drive — brand performance, team velocity, financial reports, and more.</p>
+      <div class="card-header">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          Team Reports — Google Drive
+        </div>
+      </div>
+      <div style="padding:var(--space-sm) 0 var(--space-md);">
+        <p style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-md);">Upload your daily, weekly, or project reports here. This is the shared Command Center folder on Google Drive — all reports submitted by the team are stored here.</p>
         <a href="https://drive.google.com/drive/folders/1pE-A_XsKMmQ3Jd4bc-MnTX7GOsnaEeO4" target="_blank" rel="noopener" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:8px;">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Go to Drive
         </a>
       </div>
+    </div>
+
+    <!-- SECTION 2: Admins only — Performance Summary -->
+    ${admin ? `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:var(--space-md);">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--brand-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <span style="font-size:var(--text-sm);font-weight:700;color:var(--text-primary);">Performance Summary</span>
+      <span style="font-size:10px;padding:2px 8px;background:rgba(240,180,41,0.12);color:var(--brand-primary);border:1px solid rgba(240,180,41,0.3);border-radius:20px;">Admin Only</span>
     </div>
     <div class="grid-2" style="margin-bottom:var(--space-xl);">
       <div class="card">
@@ -11366,7 +11385,7 @@ function renderReportsPage() {
           </div>`;
         }).join('')}
       </div>
-    </div>`;
+    </div>` : ''}`;
 }
 
 /*  12. SETTINGS / ADMIN PAGE  */
