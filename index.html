@@ -1935,7 +1935,7 @@
       Marketing Calendar
     </div>
 
-    <span class="nav-section-label">Admin</span>
+    <span class="nav-section-label" id="nav-label-finance">Finance</span>
 
     <div class="nav-item" data-page="finance" onclick="navigateTo('finance')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1944,6 +1944,8 @@
       </svg>
       Finance
     </div>
+
+    <span class="nav-section-label">Admin</span>
 
     <div class="nav-item" data-page="reports" onclick="navigateTo('reports')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2589,7 +2591,7 @@
     Marketing Calendar
   </div>
 
-  <span class="nav-section-label">Admin</span>
+  <span class="nav-section-label" id="mob-nav-label-finance">Finance</span>
 
   <div class="nav-item" data-page="finance" onclick="navigateTo('finance'); closeMobileNav();">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2598,6 +2600,8 @@
     </svg>
     Finance
   </div>
+
+  <span class="nav-section-label">Admin</span>
 
   <div class="nav-item" data-page="reports" onclick="navigateTo('reports'); closeMobileNav();">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2861,8 +2865,14 @@
     // Hide "Admin" nav section label if not admin
     const admin = currentUser?.role === 'admin';
     document.querySelectorAll('.nav-section-label').forEach(el => {
-      if (el.textContent.trim() === 'Admin') el.style.display = (admin || currentUser?.initials === 'HC') ? '' : 'none';
+      if (el.textContent.trim() === 'Admin') el.style.display = admin ? '' : 'none';
     });
+    // Show/hide Finance section label
+    const canSeeFinance = _canUserSeePage('finance');
+    const finLabel    = document.getElementById('nav-label-finance');
+    const mobFinLabel = document.getElementById('mob-nav-label-finance');
+    if (finLabel)    finLabel.style.display    = canSeeFinance ? '' : 'none';
+    if (mobFinLabel) mobFinLabel.style.display = canSeeFinance ? '' : 'none';
   }
 
   function showApp() {
