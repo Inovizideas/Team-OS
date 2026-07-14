@@ -15020,7 +15020,7 @@ async function downloadEodExcel() {
   try {
     if (_inGAS()) {
       const sb = _getSB();
-      let q = sb.from('eod_reports').select('*').gte('date', fromDate).lte('date', toDate).or('is_draft.eq.false,is_draft.is.null').order('date', {ascending:false}).order('created_at', {ascending:false});
+      let q = sb.from('eod_reports').select('*').gte('date', fromDate).lte('date', toDate).order('date', {ascending:false}).order('created_at', {ascending:false});
       if (member) q = q.eq('user_name', member);
       const { data, error } = await q;
       if (error) throw error;
@@ -15039,14 +15039,16 @@ async function downloadEodExcel() {
   if (!rows.length) { if(status) status.textContent = 'No EOD reports found for the selected range.'; return; }
 
   /* Build CSV content */
-  const headers = ['Date','Name','Completed','In Progress','Blockers','Tomorrow\'s Plan','Mood','Notes'];
+  const headers = ['Date','Name','Status','Completed','In Progress','Blockers','Tomorrow\'s Plan','Mood','Notes'];
   const escape  = v => '"' + String(v||'').replace(/"/g,'""').replace(/\n/g,' | ') + '"';
   const csvRows = [headers.map(escape).join(',')];
   rows.forEach(r => {
-    const blockers = Array.isArray(r.blockers) ? r.blockers.join(' | ') : (r.blockers || '');
+    const blockers = Array.isArray(r.blockers) ? r.blockers.join(' | ') : (typeof r.blockers==='string' ? (r.blockers.replace(/[\[\]"]/g,'').trim()||'') : '');
+    const status = (r.is_draft === true || r.isDraft === true) ? 'Draft' : 'Submitted';
     csvRows.push([
       r.date || (r.created_at||'').slice(0,10),
       r.full_name || r.user_name || '',
+      status,
       r.completed || '',
       r.in_progress || r.inProgress || '',
       blockers,
