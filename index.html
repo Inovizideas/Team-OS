@@ -14368,7 +14368,7 @@ function _adminPerformanceHTML() {
   const completion = totalTasks ? Math.round((doneTasks/totalTasks)*100) : 0;
 
   /* Tasks per member */
-  const memberStats = TEAM_MEMBERS.map(m => {
+  const memberStats = (DS.team||[]).map(m => {
     const mine  = DS.tasks.filter(t=>t.owner===m.id);
     const done  = mine.filter(t=>t.status==='Done').length;
     const open  = mine.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length;
