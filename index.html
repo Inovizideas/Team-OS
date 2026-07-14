@@ -14897,7 +14897,7 @@ async function renderEodPage() {
   const el = document.getElementById('page-eod');
   if (!el) return;
   const todayStr = new Date().toISOString().slice(0,10);
-  const defaultFrom = '2026-01-01';
+  const defaultFrom = '2026-05-21';
   const memberOptions = TEAM_MEMBERS.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
 
   el.innerHTML = `
