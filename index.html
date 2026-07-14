@@ -12107,12 +12107,8 @@ document.addEventListener('teamos:ready', function() {
         }
 
         else if (pg === 'eod') {
-          /* Only re-render EOD if user is still viewing today's date.
-             If they navigated to a past date, leave them alone — past data never changes. */
-          const eodDateEl = document.getElementById('eod-page-date');
-          const viewingDate = eodDateEl ? eodDateEl.value : _today();
-          if (viewingDate === _today()) _try(renderEodPage);
-          /* else: viewing a past date — skip entirely, nothing new to show */
+          /* Skip auto-re-render — avoids resetting the download filters the user may be configuring.
+             User can click Load to manually refresh the day view. */
         }
 
         else if (pg === 'finance') {
@@ -14901,7 +14897,7 @@ async function renderEodPage() {
   const el = document.getElementById('page-eod');
   if (!el) return;
   const todayStr = new Date().toISOString().slice(0,10);
-  const oneYearAgo = new Date(Date.now() - 365*24*60*60*1000).toISOString().slice(0,10);
+  const defaultFrom = '2026-01-01';
   const memberOptions = TEAM_MEMBERS.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
 
   el.innerHTML = `
@@ -14930,7 +14926,7 @@ async function renderEodPage() {
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <div>
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">From</div>
-          <input type="date" id="eod-dl-from" value="${oneYearAgo}" max="${todayStr}" style="padding:6px 10px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:var(--text-sm);background:var(--bg-surface);color:var(--text-primary);">
+          <input type="date" id="eod-dl-from" value="${defaultFrom}" max="${todayStr}" style="padding:6px 10px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:var(--text-sm);background:var(--bg-surface);color:var(--text-primary);">
         </div>
         <div>
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">To</div>
