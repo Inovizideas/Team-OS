@@ -14901,6 +14901,8 @@ async function renderEodPage() {
   const el = document.getElementById('page-eod');
   if (!el) return;
   const todayStr = new Date().toISOString().slice(0,10);
+  const oneYearAgo = new Date(Date.now() - 365*24*60*60*1000).toISOString().slice(0,10);
+  const memberOptions = TEAM_MEMBERS.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
 
   el.innerHTML = `
     <div class="page-header">
@@ -14908,11 +14910,46 @@ async function renderEodPage() {
         <h2>Team EOD Updates</h2>
         <p>End-of-day reports submitted by the team.</p>
       </div>
-      <div class="page-header-actions">
-        <input type="date" id="eod-page-date" value="${todayStr}" style="padding:6px 10px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:var(--text-sm);background:var(--bg-surface);color:var(--text-primary);" onchange="loadEodPage(this.value)">
+    </div>
+
+    <!-- Single date view -->
+    <div class="card" style="margin-bottom:var(--space-md);padding:var(--space-md) var(--space-lg);">
+      <div style="font-size:var(--text-sm);font-weight:700;margin-bottom:var(--space-sm);">View by Date</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="date" id="eod-page-date" value="${todayStr}" style="padding:6px 10px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:var(--text-sm);background:var(--bg-surface);color:var(--text-primary);">
         <button class="btn btn-secondary btn-sm" onclick="loadEodPage(document.getElementById('eod-page-date').value)">Load</button>
       </div>
     </div>
+
+    <!-- Download section -->
+    <div class="card" style="margin-bottom:var(--space-lg);padding:var(--space-md) var(--space-lg);border:1px solid rgba(240,180,41,0.3);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:var(--space-sm);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#F0B429" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span style="font-size:var(--text-sm);font-weight:700;">Download EOD Reports</span>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">From</div>
+          <input type="date" id="eod-dl-from" value="${oneYearAgo}" max="${todayStr}" style="padding:6px 10px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:var(--text-sm);background:var(--bg-surface);color:var(--text-primary);">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">To</div>
+          <input type="date" id="eod-dl-to" value="${todayStr}" max="${todayStr}" style="padding:6px 10px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:var(--text-sm);background:var(--bg-surface);color:var(--text-primary);">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Team Member</div>
+          <select id="eod-dl-member" style="padding:6px 10px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:var(--text-sm);background:var(--bg-surface);color:var(--text-primary);">
+            <option value="">All Members</option>
+            ${memberOptions}
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="downloadEodExcel()" style="white-space:nowrap;">
+          ⬇ Download Excel
+        </button>
+      </div>
+      <div id="eod-dl-status" style="margin-top:8px;font-size:var(--text-xs);color:var(--text-muted);"></div>
+    </div>
+
     <div id="eod-page-list"><div style="text-align:center;padding:40px;color:var(--text-muted);">Loading…</div></div>`;
 
   await loadEodPage(todayStr);
@@ -14970,6 +15007,72 @@ async function loadEodFromSupabase(date) {
       }
     }
   } catch(e) { if (listEl) listEl.innerHTML = `<div style="color:var(--brand-danger);padding:var(--space-md);">Error: ${e.message}</div>`; }
+}
+
+async function downloadEodExcel() {
+  const fromDate = document.getElementById('eod-dl-from')?.value;
+  const toDate   = document.getElementById('eod-dl-to')?.value;
+  const member   = document.getElementById('eod-dl-member')?.value;
+  const status   = document.getElementById('eod-dl-status');
+
+  if (!fromDate || !toDate) { if(status) status.textContent = 'Please select both From and To dates.'; return; }
+  if (fromDate > toDate)    { if(status) status.textContent = 'From date cannot be after To date.'; return; }
+
+  if(status) status.textContent = 'Fetching data…';
+
+  let rows = [];
+  try {
+    if (_inGAS()) {
+      const sb = _getSB();
+      let q = sb.from('eod_reports').select('*').gte('date', fromDate).lte('date', toDate).eq('is_draft', false).order('date', {ascending:false}).order('created_at', {ascending:false});
+      if (member) q = q.eq('user_name', member);
+      const { data, error } = await q;
+      if (error) throw error;
+      rows = data || [];
+    } else {
+      rows = EOD_LOG.filter(r => {
+        const d = (r.date||'').slice(0,10);
+        return d >= fromDate && d <= toDate && !r.is_draft && (!member || r.user_name === member || r.uid === member);
+      });
+    }
+  } catch(e) {
+    if(status) status.textContent = 'Error fetching data: ' + e.message;
+    return;
+  }
+
+  if (!rows.length) { if(status) status.textContent = 'No EOD reports found for the selected range.'; return; }
+
+  /* Build CSV content */
+  const headers = ['Date','Name','Completed','In Progress','Blockers','Tomorrow\'s Plan','Mood','Notes'];
+  const escape  = v => '"' + String(v||'').replace(/"/g,'""').replace(/\n/g,' | ') + '"';
+  const csvRows = [headers.map(escape).join(',')];
+  rows.forEach(r => {
+    const blockers = Array.isArray(r.blockers) ? r.blockers.join(' | ') : (r.blockers || '');
+    csvRows.push([
+      r.date || (r.created_at||'').slice(0,10),
+      r.full_name || r.user_name || '',
+      r.completed || '',
+      r.in_progress || r.inProgress || '',
+      blockers,
+      r.tomorrow || '',
+      r.mood || '',
+      r.notes || ''
+    ].map(escape).join(','));
+  });
+
+  const csv  = '﻿' + csvRows.join('\r\n'); /* BOM for Excel UTF-8 */
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const memberName = member ? (TEAM_MEMBERS.find(m=>m.id===member)?.name||member) : 'All-Members';
+  a.href     = url;
+  a.download = `EOD-Reports_${memberName}_${fromDate}_to_${toDate}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  if(status) status.textContent = `✅ Downloaded ${rows.length} report${rows.length!==1?'s':''} successfully.`;
 }
 
 function _adminSettingsHTML() {
