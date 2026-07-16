@@ -5336,6 +5336,7 @@
     const _existingForCreator = DS.tasks.find(x => x.id === payload.id);
     payload.createdBy   = _existingForCreator?.createdBy   || window.TeamOS?.currentUser?.initials || '';
     payload.createdAt   = _existingForCreator?.createdAt   || new Date().toISOString();
+    payload.comments    = _existingForCreator?.comments    || [];
     /* Preserve approval runtime state from existing task */
     const _existingForApproval = _existingForCreator;
     payload.approvalStep    = _existingForApproval?.approvalStep    ?? 0;
