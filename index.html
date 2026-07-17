@@ -8010,6 +8010,7 @@ function _tasksListHTML(tasks) {
               <tr>
                 <th style="width:36px;color:var(--text-muted);font-size:var(--text-xs);">#</th>
                 <th>Title</th>
+                <th>Project</th>
                 <th>Priority</th>
                 <th>Brand</th>
                 <th>Assignee</th>
@@ -8035,7 +8036,6 @@ function _tasksListHTML(tasks) {
                   </td>
                   <td>
                     <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);${t.status==='Done'?'text-decoration:line-through;color:var(--text-muted)':''}">${escHtml(t.title)}</div>
-                    ${t.project ? `<div style="font-size:var(--text-xs);color:var(--text-muted);">${FIXED_PROJECTS.find(p=>p.id===t.project)?.name||''}</div>` : ''}
                     ${(t.updatedAt||t.createdAt) ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Updated ${_timeAgo(t.updatedAt||t.createdAt)}</div>` : ''}
                     ${(t.subtasks||[]).length ? (() => {
                       const _st = t.subtasks; const _dn = _st.filter(s=>s.status==='Done').length; const _pct = Math.round(_dn/_st.length*100);
@@ -8048,6 +8048,7 @@ function _tasksListHTML(tasks) {
                     })() : ''}
                     ${_latestCommentLine(t)}
                   </td>
+                  <td><span style="font-size:var(--text-xs);color:var(--text-secondary);">${FIXED_PROJECTS.find(p=>p.id===t.project)?.name||'—'}</span></td>
                   <td>${_priorityBadge(t.priority)}</td>
                   <td><span style="font-size:var(--text-xs);color:var(--text-secondary);">${t.brand||''}</span></td>
                   <td>${_assigneeAvatars(t.assignees||[])}</td>
