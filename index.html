@@ -13159,6 +13159,19 @@ function _sendEmail(toInitials, subject, message, taskTitle) {
 
 /* Wire data events → Supabase */
 document.addEventListener('teamos:saveTask',       e => { if (_inGAS()) GAS.saveTask(e.detail); });
+/* Persist comments made via the comment modal (💬 button on task rows) */
+document.addEventListener('teamos:saveComment', e => {
+  const c = e.detail;
+  if (!c?.taskId) return;
+  const t = (DS.tasks||[]).find(x => x.id === c.taskId);
+  if (!t) return;
+  if (!t.comments) t.comments = [];
+  if (!c.id) c.id = 'C-' + Date.now();
+  t.comments.push(c);
+  t.updatedAt = new Date().toISOString(); /* bump so sync merge keeps the comment */
+  if (typeof _saveLocal === 'function') _saveLocal();
+  if (_inGAS()) GAS.saveTask(t);
+});
 document.addEventListener('teamos:saveProject',    e => { if (_inGAS()) GAS.saveProject(e.detail); });
 document.addEventListener('teamos:markAttendance', e => { if (_inGAS()) GAS.markAttendance(e.detail); });
 
@@ -14030,7 +14043,9 @@ function submitDrawerComment(taskId) {
     ts:       new Date().toISOString(),
   };
   t.comments.push(c);
+  t.updatedAt = new Date().toISOString(); /* bump so sync merge keeps the comment */
   if (input) input.value = '';
+  if (typeof _saveLocal === 'function') _saveLocal();
   GAS.saveTask(t); /* persist comment inside task data */
   /* Notify task owner + assignees + @mentioned users via Supabase (not yourself) */
   if (_inGAS()) {
