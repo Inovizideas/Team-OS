@@ -3896,10 +3896,18 @@
         <textarea class="form-textarea" id="task-notes" rows="2" placeholder="Visible only to assigned team members"></textarea>
       </div>
 
-      <!-- Drive Link -->
+      <!-- Brief / Reference links (given while assigning) -->
       <div class="form-group">
-        <label class="form-label" for="task-drive-link">Drive Link <span style="color:var(--text-muted);font-weight:400;">(optional — paste a Google Drive file or folder link)</span></label>
-        <input type="url" class="form-input" id="task-drive-link" placeholder="https://drive.google.com/…" />
+        <label class="form-label">📥 Brief / Reference Links <span style="color:var(--text-muted);font-weight:400;">(optional — material given while assigning, up to 3)</span></label>
+        <div id="task-brief-links"></div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="_addLinkRow('task-brief-links')" style="margin-top:6px;">+ Add link</button>
+      </div>
+
+      <!-- Output / Deliverable links (added when work is done) -->
+      <div class="form-group">
+        <label class="form-label">📤 Output / Deliverable Links <span style="color:var(--text-muted);font-weight:400;">(optional — finished work handed back, up to 3)</span></label>
+        <div id="task-output-links"></div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="_addLinkRow('task-output-links')" style="margin-top:6px;">+ Add link</button>
       </div>
 
       <!-- Watch toggle -->
@@ -4863,7 +4871,9 @@
       document.getElementById('task-due-ampm').value = 'AM';
     }
     document.getElementById('task-notes').value       = taskData?.notes        || '';
-    document.getElementById('task-drive-link').value  = taskData?.driveLink    || '';
+    /* Brief + Output link lists (old single driveLink migrates into Brief) */
+    _fillLinkRows('task-brief-links',  taskData?.briefLinks  || (taskData?.driveLink ? [taskData.driveLink] : []));
+    _fillLinkRows('task-output-links', taskData?.outputLinks || []);
     /* Watch toggle: checked if current user is already a watcher */
     const _wUid = window.TeamOS?.currentUser?.initials || '';
     document.getElementById('task-watch-toggle').checked = (taskData?.watchers || []).includes(_wUid);
@@ -5326,7 +5336,8 @@
       dependsOn:   [..._depTagsBuffer],
       attachments: cleanAttachments,
       notes:            document.getElementById('task-notes').value.trim(),
-      driveLink:        document.getElementById('task-drive-link').value.trim(),
+      briefLinks:       _readLinkRows('task-brief-links'),
+      outputLinks:      _readLinkRows('task-output-links'),
       subtasks:         [..._subtasksBuffer],
       updatedAt:        new Date().toISOString(),
       noApprovalNeeded: document.getElementById('task-no-approval').checked,
@@ -5337,6 +5348,7 @@
     payload.createdBy   = _existingForCreator?.createdBy   || window.TeamOS?.currentUser?.initials || '';
     payload.createdAt   = _existingForCreator?.createdAt   || new Date().toISOString();
     payload.comments    = _existingForCreator?.comments    || [];
+    payload.driveLink   = _existingForCreator?.driveLink   || '';
     /* Preserve approval runtime state from existing task */
     const _existingForApproval = _existingForCreator;
     payload.approvalStep    = _existingForApproval?.approvalStep    ?? 0;
@@ -5788,6 +5800,29 @@
       submitComment();
     }
   }
+
+  /* ── Multi-link rows (Brief / Output links on task modal) ── */
+  window._addLinkRow = function(containerId, value = '') {
+    const box = document.getElementById(containerId);
+    if (!box || box.querySelectorAll('input').length >= 3) return;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:center;';
+    row.innerHTML = `
+      <input type="url" class="form-input" placeholder="https://drive.google.com/…" style="flex:1;" value="${(value||'').replace(/"/g,'&quot;')}">
+      <button type="button" title="Remove" onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:4px;">×</button>`;
+    box.appendChild(row);
+  };
+  window._fillLinkRows = function(containerId, links) {
+    const box = document.getElementById(containerId);
+    if (!box) return;
+    box.innerHTML = '';
+    (links||[]).slice(0,3).forEach(l => window._addLinkRow(containerId, l));
+  };
+  window._readLinkRows = function(containerId) {
+    const box = document.getElementById(containerId);
+    if (!box) return [];
+    return [...box.querySelectorAll('input')].map(i=>i.value.trim()).filter(Boolean).slice(0,3);
+  };
 
   function submitComment() {
     const textarea = document.getElementById('comment-new-text');
@@ -6842,14 +6877,21 @@ function _autoPurgeDoneTasks() {
     if (t.status !== 'Done' && t.status !== 'Cancelled') return true;
     const ts = t.updatedAt || t.createdAt;
     if (!ts || ts > cutoff) return true;
-    purged.push(t.id);
+    purged.push(t);
     return false;
   });
   if (purged.length) {
     _saveLocal();
-    /* Also delete from Supabase — otherwise they re-appear on next sync */
+    /* Archive to Supabase (recoverable), then remove from live tasks table
+       — otherwise they re-appear on next sync */
     if (typeof _inGAS === 'function' && _inGAS() && typeof GAS !== 'undefined' && GAS.deleteTask) {
-      purged.forEach(id => { try { GAS.deleteTask(id); } catch(_){} });
+      const sb = (typeof _getSB === 'function') ? _getSB() : null;
+      purged.forEach(t => {
+        try {
+          if (sb) sb.from('archived_tasks').upsert({ id: t.id, data: t, archived_at: new Date().toISOString() }).then(()=>{});
+          GAS.deleteTask(t.id);
+        } catch(_){}
+      });
     }
   }
 }
@@ -13623,15 +13665,19 @@ function openTaskDrawer(id) {
       </div>
     </div>` : ''}
 
-    <!-- Drive Link -->
-    ${t.driveLink ? `
-    <div>
-      <div class="drawer-section-title">Drive Link</div>
-      <a href="${escHtml(t.driveLink)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);text-decoration:none;color:var(--brand-primary);font-size:var(--text-sm);font-weight:600;max-width:100%;overflow:hidden;">
+    <!-- Brief / Output links -->
+    ${(() => {
+      const brief  = t.briefLinks  || (t.driveLink ? [t.driveLink] : []);
+      const output = t.outputLinks || [];
+      const linkBtn = (url,i) => `<a href="${escHtml(url)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);text-decoration:none;color:var(--brand-primary);font-size:var(--text-sm);font-weight:600;max-width:100%;overflow:hidden;margin:0 6px 6px 0;">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Open in Google Drive</span>
-      </a>
-    </div>` : ''}
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Link ${i+1}</span>
+      </a>`;
+      let h = '';
+      if (brief.length)  h += `<div><div class="drawer-section-title">📥 Brief / Reference Links</div><div style="display:flex;flex-wrap:wrap;">${brief.map(linkBtn).join('')}</div></div>`;
+      if (output.length) h += `<div><div class="drawer-section-title">📤 Output / Deliverable Links</div><div style="display:flex;flex-wrap:wrap;">${output.map(linkBtn).join('')}</div></div>`;
+      return h;
+    })()}
 
     <!-- Notes -->
     ${t.notes ? `
