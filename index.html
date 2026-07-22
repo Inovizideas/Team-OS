@@ -6837,13 +6837,21 @@ const LS = {
 
 function _autoPurgeDoneTasks() {
   const cutoff = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
-  const before = DS.tasks.length;
+  const purged = [];
   DS.tasks = DS.tasks.filter(t => {
     if (t.status !== 'Done' && t.status !== 'Cancelled') return true;
     const ts = t.updatedAt || t.createdAt;
-    return !ts || ts > cutoff;
+    if (!ts || ts > cutoff) return true;
+    purged.push(t.id);
+    return false;
   });
-  if (DS.tasks.length !== before) _saveLocal();
+  if (purged.length) {
+    _saveLocal();
+    /* Also delete from Supabase — otherwise they re-appear on next sync */
+    if (typeof _inGAS === 'function' && _inGAS() && typeof GAS !== 'undefined' && GAS.deleteTask) {
+      purged.forEach(id => { try { GAS.deleteTask(id); } catch(_){} });
+    }
+  }
 }
 
 function _saveLocal() {
@@ -13159,6 +13167,39 @@ function _sendEmail(toInitials, subject, message, taskTitle) {
 
 /* Wire data events → Supabase */
 document.addEventListener('teamos:saveTask',       e => { if (_inGAS()) GAS.saveTask(e.detail); });
+/* Handle task rejection (Send Back modal) — was previously a no-op */
+document.addEventListener('teamos:rejectTask', e => {
+  const d = e.detail;
+  if (!d?.taskId) return;
+  const t = (DS.tasks||[]).find(x => x.id === d.taskId);
+  if (!t) return;
+  t.status = 'Changes Requested';
+  if (d.reassignTo) t.owner = d.reassignTo;
+  if (d.newDue)     t.due   = d.newDue;
+  if (!t.comments) t.comments = [];
+  const user = window.TeamOS?.currentUser;
+  t.comments.push({
+    id: 'C-'+Date.now(), taskId: t.id,
+    author: user?.name || 'Admin', initials: user?.initials || '?',
+    text: '↩ Sent back' + (d.reasons?.length ? ' ('+d.reasons.join(', ')+')' : '') + ': ' + d.note,
+    time: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),
+    ts: new Date().toISOString(),
+  });
+  t.updatedAt = new Date().toISOString();
+  if (typeof _saveLocal === 'function') _saveLocal();
+  if (_inGAS()) {
+    GAS.saveTask(t);
+    /* Notify owner + assignees */
+    const sb = _getSB();
+    const who = user?.name || 'Admin';
+    const targets = new Set([t.owner, ...(t.assignees||[])].filter(x => x && x !== user?.initials));
+    targets.forEach(uid => {
+      const nid = 'n_rej_' + t.id + '_' + Date.now() + '_' + uid;
+      sb.from('notifications').insert({ id: nid, user_name: uid, type: 'changes_requested', message: `${who} sent back: ${t.title} — ${d.note}`, task_id: t.id, read: 'unread', created_at: new Date().toISOString() }).then(()=>{});
+    });
+  }
+  if (typeof renderTasksPage === 'function') { try { renderTasksPage(); } catch(_){} }
+});
 /* Persist comments made via the comment modal (💬 button on task rows) */
 document.addEventListener('teamos:saveComment', e => {
   const c = e.detail;
