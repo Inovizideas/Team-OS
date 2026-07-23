@@ -3731,15 +3731,6 @@
           <label class="form-label" for="task-brand">Brand / Vertical</label>
           <select class="form-select" id="task-brand">
             <option value=""> All </option>
-            <option value="WOTM">WOTM</option>
-            <option value="Narradora">Narradora</option>
-            <option value="Storehaus">Storehaus</option>
-            <option value="Trading">Trading</option>
-            <option value="Marketing Div.">Marketing Div.</option>
-            <option value="Consultancy">Consultancy</option>
-            <option value="Rewards">Rewards</option>
-            <option value="IIPL General">IIPL General</option>
-            <option value="Misc">⭐ Misc / One-time</option>
           </select>
         </div>
       </div>
@@ -4223,16 +4214,7 @@
 
       <div class="form-group">
         <label class="form-label">Brand / Vertical</label>
-        <div class="project-brand-tabs" id="project-brand-tabs">
-          <span class="brand-tab active" onclick="selectBrandTab(this,'WOTM')">WOTM</span>
-          <span class="brand-tab" onclick="selectBrandTab(this,'Narradora')">Narradora</span>
-          <span class="brand-tab" onclick="selectBrandTab(this,'Storehaus')">Storehaus</span>
-          <span class="brand-tab" onclick="selectBrandTab(this,'Trading')">Trading</span>
-          <span class="brand-tab" onclick="selectBrandTab(this,'Marketing Div.')">Marketing</span>
-          <span class="brand-tab" onclick="selectBrandTab(this,'Consultancy')">Consultancy</span>
-          <span class="brand-tab" onclick="selectBrandTab(this,'Rewards')">Rewards</span>
-          <span class="brand-tab" onclick="selectBrandTab(this,'IIPL General')">IIPL</span>
-        </div>
+        <div class="project-brand-tabs" id="project-brand-tabs"></div>
         <input type="hidden" id="project-brand" value="WOTM" />
       </div>
 
@@ -4896,7 +4878,11 @@
 
     // Brand / Project  scoped to user's accessible projects
     const brandSel = document.getElementById('task-brand');
-    if (brandSel && taskData?.brand) brandSel.value = taskData.brand;
+    if (brandSel) {
+      brandSel.innerHTML = `<option value=""> All </option>` +
+        ALL_BRANDS.map(b => `<option value="${b}"${taskData?.brand===b?' selected':''}>${b==='Misc'?'⭐ Misc / One-time':b}</option>`).join('');
+      if (taskData?.brand) brandSel.value = taskData.brand;
+    }
 
     const projSel = document.getElementById('task-project');
     if (projSel) {
@@ -5707,9 +5693,9 @@
     document.getElementById('project-status').value = projectData?.status || 'Planning';
     const brand = projectData?.brand || 'WOTM';
     document.getElementById('project-brand').value = brand;
-    document.querySelectorAll('.brand-tab').forEach(t => {
-      t.classList.toggle('active', t.textContent.trim() === brand);
-    });
+    const _btabs = document.getElementById('project-brand-tabs');
+    if (_btabs) _btabs.innerHTML = ALL_BRANDS.map(b =>
+      `<span class="brand-tab${b===brand?' active':''}" onclick="selectBrandTab(this,'${b.replace(/'/g,"\\'")}')">${b}</span>`).join('');
     populateSelect('project-owner', TEAM_MEMBERS);
     if (projectData?.owner) document.getElementById('project-owner').value = projectData.owner;
     _projEditId = projectData?.id || null;
@@ -7357,12 +7343,7 @@ function renderDashboard() {
       <div class="qc-row">
         <input type="text" class="qc-input" id="qc-title" placeholder="Task title" onkeydown="if(event.key==='Enter') quickCreateTask()" />
         ${admin ? `<select class="qc-select" id="qc-brand">
-          <option value="WOTM">WOTM</option>
-          <option value="Narradora">Narradora</option>
-          <option value="Storehaus">Storehaus</option>
-          <option value="Trading">Trading</option>
-          <option value="Marketing Div.">Marketing</option>
-          <option value="IIPL General">IIPL</option>
+          ${ALL_BRANDS.map(b=>`<option value="${b}">${b}</option>`).join('')}
         </select>
         <select class="qc-select" id="qc-assignee">
           ${TEAM_MEMBERS.map(m=>`<option value="${m.id}"${m.id===uid?' selected':''}> ${m.name.split(' ')[0]}</option>`).join('')}
@@ -7722,7 +7703,10 @@ function renderProjectsPage() {
   `;
 }
 
-const _BRAND_LIST = ['WOTM','Narradora','Storehaus','Trading','Marketing Div.','Consultancy','Rewards','IIPL General','Misc'];
+/* Master brand list — single source of truth used across the whole app */
+const ALL_BRANDS = ['WOTM','Narradora','Ocean','Yera','Pasabahce','Neelam','Echt','Sanjeev Kapoor','Storehaus','Vipron','R&R','Table and Tale','Richardson Sheffield','Iveo','Signoraware','Trading','Marketing Div.','Consultancy','Rewards','IIPL General','Misc'];
+window.ALL_BRANDS = ALL_BRANDS;
+const _BRAND_LIST = ALL_BRANDS;
 
 function renderBrandsPage() {
   const el = document.getElementById('brands-content');
@@ -9817,7 +9801,7 @@ function renderCallsPage() {
 
 /* ── MARKETING CALENDAR ──────────────────────────────────────────────────── */
 
-const MKT_BRANDS = ['WOTM','Narradora','Ocean','Yera','Pasabahce','Neelam','Echt','Sanjeev Kapoor','Storehaus','Vipron','R&R','Table and Tale','Richardson Sheffield','Iveo','Signoraware','IIPL'];
+const MKT_BRANDS = ALL_BRANDS;
 const MKT_PLATFORMS = ['Amazon','Blinkit','BigBasket','Swiggy','JioMart','Flipkart','Ajio','Website','Lifestyle','Myntra','Meta Ads','Google Ads','All'];
 const MKT_TYPES = [
   { key:'sale',      label:'Sale',             color:'#EF4444', bg:'rgba(239,68,68,0.10)' },
@@ -9987,11 +9971,13 @@ function _mktQuarterView(year, month, events) {
 function downloadMktReport() {
   const events = [...(DS.mktEvents || [])].sort((a,b)=>(a.startDate||'').localeCompare(b.startDate||''));
   if (!events.length) { showToast({ type:'warning', title:'Nothing to download', message:'No campaigns/events to export yet.' }); return; }
-  const headers = ['Start Date','End Date','Title','Brand','Type','Platforms','Budget (Rs)','Campaign Brief Link','Results / Performance Link','Description / Notes','Recurring'];
+  const headers = ['Created By','Start Date','End Date','Title','Brand','Type','Platforms','Budget (Rs)','Campaign Brief Link','Results / Performance Link','Description / Notes','Recurring'];
   const esc = v => '"' + String(v==null?'':v).replace(/"/g,'""').replace(/\n/g,' | ') + '"';
+  const _nm = init => (DS.team||[]).find(m=>m.initials===init||m.id===init)?.name || init || '';
   const rows = [headers.map(esc).join(',')];
   events.forEach(ev => {
     rows.push([
+      _nm(ev.createdBy),
       ev.startDate||'', ev.endDate||'', ev.title||'', ev.brand||'',
       (MKT_TYPES.find(t=>t.key===ev.type)?.label || ev.type || ''),
       (ev.platforms||[]).join(' | '),
@@ -10019,22 +10005,21 @@ function _mktSheetView(events) {
   let html = `<div class="card" style="padding:0;overflow:hidden;">
     <div style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-default);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <span style="font-size:var(--text-sm);font-weight:700;">📊 Consolidated Marketing Sheet — ${sorted.length} events</span>
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <span style="font-size:var(--text-sm);font-weight:700;color:var(--brand-primary);">Total Budget: ₹${totalBudget.toLocaleString('en-IN')}</span>
-        <button class="btn btn-primary btn-sm" onclick="downloadMktReport()" style="white-space:nowrap;">⬇ Download Report</button>
-      </div>
+      <button class="btn btn-primary btn-sm" onclick="downloadMktReport()" style="white-space:nowrap;">⬇ Download Report</button>
     </div>
     <div class="table-wrapper" style="border:none;border-radius:0;">
       <table>
-        <thead><tr><th>Dates</th><th>Title</th><th>Brand</th><th>Type</th><th>Platforms</th><th>Budget</th><th>Links</th><th></th></tr></thead>
+        <thead><tr><th>Created By</th><th>Dates</th><th>Title</th><th>Brand</th><th>Type</th><th>Platforms</th><th>Budget</th><th>Links</th><th></th></tr></thead>
         <tbody>`;
 
   if (!sorted.length) {
-    html += '<tr><td colspan="8" style="text-align:center;padding:var(--space-xl);color:var(--text-muted);">No events match the current filters</td></tr>';
+    html += '<tr><td colspan="9" style="text-align:center;padding:var(--space-xl);color:var(--text-muted);">No events match the current filters</td></tr>';
   } else {
     sorted.forEach(ev => {
       const tc = MKT_TYPES.find(t => t.key === ev.type) || MKT_TYPES[0];
+      const _creator = (DS.team||[]).find(m=>m.initials===ev.createdBy||m.id===ev.createdBy);
       html += `<tr style="cursor:pointer;" onclick="_openMktEventModal('${ev.id}')">
+        <td style="font-size:var(--text-xs);white-space:nowrap;">${_creator ? `<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:20px;height:20px;border-radius:50%;background:${_creator.color};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white;">${_creator.initials}</span>${escHtml(_creator.name.split(' ')[0])}</span>` : '—'}</td>
         <td style="font-size:var(--text-xs);font-weight:600;white-space:nowrap;">${ev.startDate} → ${ev.endDate}</td>
         <td style="font-size:var(--text-sm);font-weight:600;">${escHtml(ev.title)}</td>
         <td style="font-size:var(--text-xs);">${escHtml(ev.brand||'')}</td>
@@ -10190,7 +10175,12 @@ function _saveMktEvent(editId) {
 
   if (editId) {
     const existing = (DS.mktEvents || []).find(e => e.id === editId);
-    if (existing) Object.assign(existing, evData);
+    if (existing) {
+      /* Preserve the ORIGINAL creator — editing must not change who created it */
+      evData.createdBy = existing.createdBy || evData.createdBy;
+      evData.createdAt = existing.createdAt || evData.createdAt;
+      Object.assign(existing, evData);
+    }
     evData.id = editId;
   } else {
     evData.id = 'mkt_' + Date.now();
@@ -10661,7 +10651,7 @@ function openCampaignModal(c) {
         <div class="form-row">
           <div class="form-group"><label class="form-label">Brand</label>
             <select class="form-select" id="camp-brand">
-              ${['WOTM','Narradora','Storehaus','Trading','IIPL General'].map(b=>`<option>${b}</option>`).join('')}
+              ${ALL_BRANDS.map(b=>`<option>${b}</option>`).join('')}
             </select>
           </div>
           <div class="form-group"><label class="form-label">Channel</label>
@@ -11036,7 +11026,7 @@ function openContentModal(idOrPost, defaultDate) {
         <div class="form-row">
           <div class="form-group"><label class="form-label">Brand</label>
             <select class="form-select" id="cont-brand">
-              ${['WOTM','Narradora','Storehaus','IIPL'].map(b=>`<option>${b}</option>`).join('')}
+              ${ALL_BRANDS.map(b=>`<option>${b}</option>`).join('')}
             </select>
           </div>
           <div class="form-group"><label class="form-label">Channel</label>
