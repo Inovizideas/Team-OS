@@ -1900,13 +1900,6 @@
       Brands &amp; Products
     </div>
 
-    <div class="nav-item" data-page="campaigns" onclick="navigateTo('campaigns')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-      </svg>
-      Campaigns
-    </div>
-
     <div class="nav-item" data-page="vendors" onclick="navigateTo('vendors')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -2556,13 +2549,6 @@
     Brands &amp; Products
   </div>
 
-  <div class="nav-item" data-page="campaigns" onclick="navigateTo('campaigns'); closeMobileNav();">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-    </svg>
-    Campaigns
-  </div>
-
   <div class="nav-item" data-page="vendors" onclick="navigateTo('vendors'); closeMobileNav();">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -2830,7 +2816,7 @@
     const uid   = currentUser.initials;
     const rules = {
       brands:     admin,
-      campaigns:  admin || uid === 'TA',
+      campaigns:  false,
       vendors:    admin,
       content:    admin || uid === 'AR' || uid === 'RL',
       mktcal:     admin || uid === 'TA',
