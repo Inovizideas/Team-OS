@@ -1821,7 +1821,7 @@
     </div>
 
     <!-- Tasks group (expandable) -->
-    <div class="nav-group open" id="nav-group-tasks">
+    <div class="nav-group" id="nav-group-tasks">
       <div class="nav-item nav-group-header" onclick="toggleNavGroup('tasks')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="9 11 12 14 22 4"/>
@@ -1882,14 +1882,12 @@
       Weekly Huddle
     </div>
 
-    <div class="nav-item" data-page="team" onclick="navigateTo('team')">
+    <div class="nav-item" data-page="attendance" onclick="navigateTo('attendance')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-        <circle cx="9" cy="7" r="4"/>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
       </svg>
-      Team
+      Attendance
     </div>
 
     <span class="nav-section-label">Business</span>
@@ -1956,6 +1954,16 @@
     </div>
 
     <span class="nav-section-label">Admin</span>
+
+    <div class="nav-item" data-page="team" onclick="navigateTo('team')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      Team
+    </div>
 
     <div class="nav-item" data-page="eod" onclick="navigateTo('eod')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2235,17 +2243,6 @@
           <h2>Team</h2>
           <p>Members, roles, and workload at a glance.</p>
         </div>
-        <div class="page-header-actions">
-          <button class="btn btn-primary btn-sm" id="btn-add-member" onclick="isAdmin()?navigateTo('admin'):showToast({type:'info',title:'Contact admin to add team members'})">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="8.5" cy="7" r="4"/>
-              <line x1="20" y1="8" x2="20" y2="14"/>
-              <line x1="17" y1="11" x2="23" y2="11"/>
-            </svg>
-            Add Member
-          </button>
-        </div>
       </div>
       <div id="team-content">
         <div class="card">
@@ -2481,7 +2478,7 @@
   </div>
 
   <!-- Tasks group (expandable) -->
-  <div class="nav-group open" id="mob-nav-group-tasks">
+  <div class="nav-group" id="mob-nav-group-tasks">
     <div class="nav-item nav-group-header" onclick="toggleNavGroup('mob-tasks')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="9 11 12 14 22 4"/>
@@ -2541,14 +2538,12 @@
     Weekly Huddle
   </div>
 
-  <div class="nav-item" data-page="team" onclick="navigateTo('team'); closeMobileNav();">
+  <div class="nav-item" data-page="attendance" onclick="navigateTo('attendance'); closeMobileNav();">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
     </svg>
-    Team
+    Attendance
   </div>
 
   <span class="nav-section-label">Business</span>
@@ -2626,12 +2621,14 @@
     <span id="mob-nav-badge-eod" class="nav-badge" style="display:none;background:#F0B429;color:#111;">0</span>
   </div>
 
-  <div class="nav-item" data-page="attendance" onclick="navigateTo('attendance'); closeMobileNav();">
+  <div class="nav-item" data-page="team" onclick="navigateTo('team'); closeMobileNav();">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
-      <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
     </svg>
-    Attendance
+    Team
   </div>
 
   <div class="nav-item" data-page="past-announcements" onclick="navigateTo('past-announcements'); closeMobileNav();">
@@ -2845,7 +2842,7 @@
       mytasks:    true,
       watching:   true,
       attendance: true,
-      team:       true,
+      team:       admin,
       tasks:      true,
       kanban:     true,
       dashboard:  true,
@@ -11453,6 +11450,7 @@ function renderSettingsPage() {
       ${_settingToggle('EOD Reminder on Logout', 'Prompt End-of-Day report before signing out', 'eod-reminder', DS.settings.eodReminder)}
       ${_settingToggle('Weekly Digest', 'Auto-generate weekly summary every Monday', 'weekly-digest', DS.settings.weeklyDigest)}
       ${_settingToggle('Auto-Assign Tasks', 'Auto-assign unassigned tasks based on workload', 'auto-assign', DS.settings.autoAssign)}
+      ${_backupDeviceToggle()}
     </div>
     <div class="admin-section">
       <div class="admin-section-title">
@@ -11482,8 +11480,9 @@ function renderSettingsPage() {
           </tbody>
         </table>
       </div>
-      <div style="margin-top:var(--space-md);">
-        <button class="btn btn-primary btn-sm" onclick="openModal('modal-task-overlay');document.getElementById('modal-task-title').textContent='Add Team Member';">+ Add Member</button>
+      <div style="margin-top:var(--space-md);padding:12px 14px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--text-secondary);line-height:1.6;">
+        <b style="color:var(--text-primary);">Adding a new team member?</b><br>
+        A new member needs a secure login to be set up in the system. Message the developer with the person's <b>name, official email, and access level</b> (e.g. same as Hariom for accounts), and it will be added within minutes.
       </div>
     </div>`;
 }
@@ -11533,6 +11532,23 @@ function renderAdminPage() {
       <div id="eod-log-list">
         <div style="text-align:center;padding:var(--space-xl) 0;color:var(--text-muted);font-size:var(--text-sm);">No EOD reports submitted yet in this session.</div>
       </div>
+    </div>`;
+}
+
+/* Marks THIS device as the weekly-backup machine (stored locally, per device).
+   Only the device toggled ON will auto-download the weekly task backup. */
+function _backupDeviceToggle() {
+  const on = (typeof _lsGet==='function' && _lsGet('iipl_backup_device')==='yes');
+  return `
+    <div class="setting-row">
+      <div class="setting-row-info">
+        <div class="setting-row-label">This is the backup device</div>
+        <div class="setting-row-desc">When ON, a full task backup CSV auto-downloads to THIS computer once a week (Monday). Turn ON only on Nidhi's laptop.</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" ${on?'checked':''} onchange="_lsSet('iipl_backup_device', this.checked?'yes':'no');showToast({type:'info',title:this.checked?'This device will get weekly backups':'Backup disabled on this device'});" />
+        <span class="toggle-slider"></span>
+      </label>
     </div>`;
 }
 
@@ -14401,7 +14417,9 @@ function filterVisibleTasks(options = {}) {
    onwards, IST), auto-download the full tasks CSV. Browser apps can't run
    while closed, so this fires on first open of the week instead. */
 function _weeklyAutoExport() {
-  if (typeof isAdmin === 'function' && !isAdmin()) return;
+  /* Only runs on the one device explicitly marked as the backup machine
+     (Settings → "This is the backup device"). Never downloads anywhere else. */
+  if (_lsGet('iipl_backup_device') !== 'yes') return;
   const now = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
   const day = now.getDay(); /* 0=Sun … 1=Mon */
   const monday = new Date(now);
@@ -15308,6 +15326,7 @@ function _adminSettingsHTML() {
       ${_settingToggle('EOD Reminder on Logout','Prompt End-of-Day report before signing out','eod-reminder',DS.settings.eodReminder)}
       ${_settingToggle('Weekly Digest','Auto-generate weekly summary every Monday','weekly-digest',DS.settings.weeklyDigest)}
       ${_settingToggle('Auto-Assign Tasks','Auto-assign unassigned tasks based on workload','auto-assign',DS.settings.autoAssign)}
+      ${_backupDeviceToggle()}
     </div>
     <div class="admin-section">
       <div class="admin-section-title">Team Members</div>
