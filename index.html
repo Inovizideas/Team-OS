@@ -9969,6 +9969,34 @@ function _mktQuarterView(year, month, events) {
   return html;
 }
 
+function downloadMktReport() {
+  const events = [...(DS.mktEvents || [])].sort((a,b)=>(a.startDate||'').localeCompare(b.startDate||''));
+  if (!events.length) { showToast({ type:'warning', title:'Nothing to download', message:'No campaigns/events to export yet.' }); return; }
+  const headers = ['Start Date','End Date','Title','Brand','Type','Platforms','Budget (Rs)','Campaign Brief Link','Results / Performance Link','Description / Notes','Recurring'];
+  const esc = v => '"' + String(v==null?'':v).replace(/"/g,'""').replace(/\n/g,' | ') + '"';
+  const rows = [headers.map(esc).join(',')];
+  events.forEach(ev => {
+    rows.push([
+      ev.startDate||'', ev.endDate||'', ev.title||'', ev.brand||'',
+      (MKT_TYPES.find(t=>t.key===ev.type)?.label || ev.type || ''),
+      (ev.platforms||[]).join(' | '),
+      ev.budget||0,
+      ev.docLink||'', ev.resultsLink||'',
+      ev.description||'',
+      ev.recurring ? 'Yes' : 'No',
+    ].map(esc).join(','));
+  });
+  const csv  = '﻿' + rows.join('\r\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `Marketing-Calendar_Report_${_today()}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast({ type:'success', title:'Report downloaded', message:`${events.length} campaigns exported with all links.` });
+}
+
 function _mktSheetView(events) {
   const sorted = [...events].sort((a, b) => (a.startDate||'').localeCompare(b.startDate||''));
   const totalBudget = sorted.reduce((sum, e) => sum + (parseFloat(e.budget) || 0), 0);
@@ -9976,7 +10004,10 @@ function _mktSheetView(events) {
   let html = `<div class="card" style="padding:0;overflow:hidden;">
     <div style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-default);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <span style="font-size:var(--text-sm);font-weight:700;">📊 Consolidated Marketing Sheet — ${sorted.length} events</span>
-      <span style="font-size:var(--text-sm);font-weight:700;color:var(--brand-primary);">Total Budget: ₹${totalBudget.toLocaleString('en-IN')}</span>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span style="font-size:var(--text-sm);font-weight:700;color:var(--brand-primary);">Total Budget: ₹${totalBudget.toLocaleString('en-IN')}</span>
+        <button class="btn btn-primary btn-sm" onclick="downloadMktReport()" style="white-space:nowrap;">⬇ Download Report</button>
+      </div>
     </div>
     <div class="table-wrapper" style="border:none;border-radius:0;">
       <table>
