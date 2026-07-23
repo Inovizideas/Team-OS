@@ -5340,6 +5340,7 @@
       outputLinks:      _readLinkRows('task-output-links'),
       subtasks:         [..._subtasksBuffer],
       updatedAt:        new Date().toISOString(),
+      lastEditedBy:     window.TeamOS?.currentUser?.initials || '',
       noApprovalNeeded: document.getElementById('task-no-approval').checked,
       approvers:        _getApprovers(),
     };
@@ -6896,6 +6897,26 @@ function _autoPurgeDoneTasks() {
   }
 }
 
+/* Merge two versions of the same task: newest edit wins for fields,
+   but comments from BOTH sides are kept (union by id, sorted by time)
+   so nobody's comment is lost when two people touch the same task. */
+function _mergeTaskVersions(loc, sbT) {
+  if (!loc) return sbT;
+  const newer = (loc.updatedAt && sbT.updatedAt && loc.updatedAt > sbT.updatedAt) ? loc : sbT;
+  const a = loc.comments || [], b = sbT.comments || [];
+  if (a.length || b.length) {
+    const seen = new Set();
+    const union = [...a, ...b].filter(c => {
+      const k = c.id || ((c.ts||'') + '|' + (c.initials||'') + '|' + (c.text||''));
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    }).sort((x,y) => (x.ts||'').localeCompare(y.ts||''));
+    return { ...newer, comments: union };
+  }
+  return newer;
+}
+
 function _saveLocal() {
   try {
     _lsSet(LS.TASKS,         JSON.stringify(DS.tasks));
@@ -8086,7 +8107,7 @@ function _tasksListHTML(tasks) {
                   </td>
                   <td>
                     <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);${t.status==='Done'?'text-decoration:line-through;color:var(--text-muted)':''}">${escHtml(t.title)}</div>
-                    ${(t.updatedAt||t.createdAt) ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Updated ${_timeAgo(t.updatedAt||t.createdAt)}</div>` : ''}
+                    ${(t.updatedAt||t.createdAt) ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Updated ${_timeAgo(t.updatedAt||t.createdAt)}${t.lastEditedBy ? ' by ' + (TEAM_MEMBERS.find(m=>m.initials===t.lastEditedBy)?.name.split(' ')[0] || t.lastEditedBy) : ''}</div>` : ''}
                     ${(t.subtasks||[]).length ? (() => {
                       const _st = t.subtasks; const _dn = _st.filter(s=>s.status==='Done').length; const _pct = Math.round(_dn/_st.length*100);
                       return `<div style="margin-top:5px;">
@@ -11265,7 +11286,7 @@ function _paintBills() {
               <td>${_invTag(b.invType)}</td>
               <td style="font-size:var(--text-sm);font-weight:600;">${b.amount ? '₹'+escHtml(String(b.amount)) : '—'}</td>
               <td>${_payTag(b)}</td>
-              <td style="font-size:var(--text-xs);color:${b.payDate && b.payDate < new Date().toISOString().slice(0,10) ? 'var(--brand-danger)' : 'var(--text-secondary)'};">
+              <td style="font-size:var(--text-xs);color:${b.payDate && b.payDate < _today() ? 'var(--brand-danger)' : 'var(--text-secondary)'};">
                 ${b.payDate || '—'}
               </td>
               <td style="font-size:var(--text-xs);color:var(--text-secondary);">${escHtml(b.uploadedBy || '')}</td>
@@ -11997,7 +12018,8 @@ function _timeAgo(iso) {
 }
 
 function _today() {
-  return new Date().toISOString().slice(0,10);
+  /* IST calendar date — day flips at midnight IST, not 5:30 AM (UTC midnight) */
+  return new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'});
 }
 
 function _statusBadge(s) {
@@ -12073,6 +12095,7 @@ document.addEventListener('teamos:ready', function() {
   if (user && _inGAS()) {
     GAS.syncAll(user.initials).then(ok => {
       _safeRenderAll();
+      try { if (typeof _weeklyAutoExport === 'function') _weeklyAutoExport(); } catch(_){}
       /* Also re-render whichever extra page is currently active (e.g. Watching loaded before sync) */
       const _try = fn => { try { if (typeof fn === 'function') fn(); } catch(e){} };
       const pg = window.TeamOS.currentPage;
@@ -12113,11 +12136,7 @@ document.addEventListener('teamos:ready', function() {
         if (tasksRes.data) {
           const sbTasks = tasksRes.data.map(r => r.data);
           const localById = Object.fromEntries((DS.tasks || []).map(t => [t.id, t]));
-          const merged = sbTasks.map(sbT => {
-            const loc = localById[sbT.id];
-            if (loc && loc.updatedAt && sbT.updatedAt && loc.updatedAt > sbT.updatedAt) return loc;
-            return sbT;
-          });
+          const merged = sbTasks.map(sbT => _mergeTaskVersions(localById[sbT.id], sbT));
           const sbIds = new Set(sbTasks.map(t => t.id));
           (DS.tasks || []).filter(t => t.id && !sbIds.has(t.id)).forEach(t => merged.push(t));
           DS.tasks = merged;
@@ -12798,7 +12817,7 @@ const GAS = {
   async syncAll(userName) {
     const sb = _getSB(); if (!sb) return false;
     try {
-      const today = new Date().toISOString().slice(0,10);
+      const today = _today();
       const [tasksRes, projRes, notifRes, vendRes, campRes, contRes, billRes, checkinRes, attRes, callsRes, annRes, grvRes, mktRes] = await Promise.all([
         sb.from('tasks').select('data'),
         sb.from('projects').select('data'),
@@ -12819,11 +12838,7 @@ const GAS = {
         const sbTasks = tasksRes.data.map(r => r.data);
         const localById = Object.fromEntries((DS.tasks || []).map(t => [t.id, t]));
         const sbById = Object.fromEntries(sbTasks.map(t => [t.id, t]));
-        const merged = sbTasks.map(sbT => {
-          const loc = localById[sbT.id];
-          if (loc && loc.updatedAt && sbT.updatedAt && loc.updatedAt > sbT.updatedAt) return loc;
-          return sbT;
-        });
+        const merged = sbTasks.map(sbT => _mergeTaskVersions(localById[sbT.id], sbT));
         /* Keep local-only tasks not yet in Supabase */
         const sbIds = new Set(sbTasks.map(t => t.id));
         (DS.tasks || []).filter(t => t.id && !sbIds.has(t.id)).forEach(t => merged.push(t));
@@ -14382,6 +14397,22 @@ function filterVisibleTasks(options = {}) {
 }
 
 /* Export CSV  full version with all fields */
+/* Weekly safety-net backup: on an admin's first login of each week (Monday
+   onwards, IST), auto-download the full tasks CSV. Browser apps can't run
+   while closed, so this fires on first open of the week instead. */
+function _weeklyAutoExport() {
+  if (typeof isAdmin === 'function' && !isAdmin()) return;
+  const now = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+  const day = now.getDay(); /* 0=Sun … 1=Mon */
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((day + 6) % 7)); /* this week's Monday */
+  const mondayStr = monday.toISOString().slice(0,10);
+  if (_lsGet('iipl_weekly_export_done') === mondayStr) return;
+  _lsSet('iipl_weekly_export_done', mondayStr);
+  exportCSV('all');
+  if (typeof showToast === 'function') showToast({ type:'info', title:'Weekly backup downloaded', message:'Full task list saved as CSV (auto-backup, runs once a week).', duration:8000 });
+}
+
 function exportCSV(scope = 'all') {
   const DS   = window.TeamOS.DS;
   let tasks  = DS?.tasks || [];
@@ -14739,7 +14770,7 @@ function _renderEodCard(r) {
 }
 
 function _adminEodReportsHTML() {
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = _today();
   /* Start with local EOD log */
   const localItems = EOD_LOG.slice().reverse();
 
@@ -15080,7 +15111,7 @@ function reorderProject(projectId, dir) {
 async function renderEodPage() {
   const el = document.getElementById('page-eod');
   if (!el) return;
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = _today();
   const defaultFrom = '2026-05-21';
   const memberOptions = TEAM_MEMBERS.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
 
@@ -15383,10 +15414,10 @@ window.saveEodReport = function(andLogout) {
     const sb = _getSB();
     const uid = window.TeamOS.currentUser?.initials || '';
     const name = window.TeamOS.currentUser?.name || '';
-    const eodId = 'eod_' + uid + '_' + new Date().toISOString().slice(0,10) + '_' + Date.now();
+    const eodId = 'eod_' + uid + '_' + _today() + '_' + Date.now();
     sb.from('eod_reports').upsert({
       id: eodId, user_name: uid, full_name: name,
-      date: new Date().toISOString().slice(0,10),
+      date: _today(),
       completed: payload.completed, in_progress: payload.inProgress,
       blockers: JSON.stringify(payload.blockers||[]),
       tomorrow: payload.tomorrow, mood: payload.mood,
@@ -15397,7 +15428,7 @@ window.saveEodReport = function(andLogout) {
     if (!payload.isDraft) {
       ['NG','SV','EA'].forEach(adm => {
         if (adm !== uid) {
-          const nid = 'n_eod_' + uid + '_' + new Date().toISOString().slice(0,10);
+          const nid = 'n_eod_' + uid + '_' + _today();
           sb.from('notifications').upsert({ id: nid, user_name: adm, type: 'general', message: `${name} submitted their EOD report`, task_id: null, read: 'unread', created_at: new Date().toISOString() }).then(()=>{});
         }
       });
