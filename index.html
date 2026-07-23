@@ -9837,7 +9837,8 @@ window._mktCalView = 'month';
 function renderMktCalPage() {
   const el = document.getElementById('page-mktcal');
   if (!el) return;
-  const admin = isAdmin();
+  /* Anyone who can access this page (admins + Taasin) can add/manage campaigns */
+  const admin = isAdmin() || (window.TeamOS?.currentUser?.initials === 'TA');
   const view = window._mktCalView || 'month';
   const year = window._mktCalYear;
   const month = window._mktCalMonth;
