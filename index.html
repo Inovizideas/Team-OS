@@ -4593,6 +4593,7 @@
     { id: 'proj_marketing',  name: 'Marketing' },
     { id: 'proj_misc',       name: 'Misc' },
   ];
+  FIXED_PROJECTS.sort((a,b)=>a.name.localeCompare(b.name));
 
   /*  Config  */
   const TEAM_MEMBERS = [
@@ -4612,6 +4613,7 @@
   { id: 'SV', name: 'SV',              initials: 'SV', color: '#1D4ED8' },
   { id: 'EA', name: 'Ekta Asher',       initials: 'EA', color: '#BE185D' },
 ];
+  TEAM_MEMBERS.sort((a,b)=>a.name.localeCompare(b.name));
 
   const STATUS_CONFIG = [
     { value: 'To Do',       color: '#94A3B8', label: 'To Do' },
@@ -7690,7 +7692,8 @@ function renderProjectsPage() {
 }
 
 /* Master brand list — single source of truth used across the whole app */
-const ALL_BRANDS = ['WOTM','Narradora','Ocean','Yera','Pasabahce','Neelam','Echt','Sanjeev Kapoor','Storehaus','Vipron','R&R','Table and Tale','Richardson Sheffield','Iveo','Signoraware','Trading','Marketing Div.','Consultancy','Rewards','IIPL General','Misc'];
+const ALL_BRANDS = ['WOTM','Narradora','Ocean','Yera','Pasabahce','Neelam','Echt','Sanjeev Kapoor','Storehaus','Vipron','R&R','Table and Tale','Richardson Sheffield','Iveo','Signoraware','Trading','Marketing Div.','Consultancy','Rewards','IIPL General','Misc']
+  .sort((a,b) => a==='Misc' ? 1 : b==='Misc' ? -1 : a.localeCompare(b)); /* alphabetical, Misc always last */
 window.ALL_BRANDS = ALL_BRANDS;
 const _BRAND_LIST = ALL_BRANDS;
 
