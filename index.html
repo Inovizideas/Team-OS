@@ -7141,9 +7141,9 @@ function renderDashboard() {
   const activeProjs  = FIXED_PROJECTS.length;
 
   /*  Announcements — split active vs expired  */
-  const _today2 = _today();
-  const activeAnns  = DS.announcements.filter(a => !a.pinUntil || a.pinUntil >= _today2);
-  const expiredAnns = DS.announcements.filter(a => a.pinUntil && a.pinUntil < _today2);
+  const _annSorted  = [...DS.announcements].sort((a,b) => _annTs(b) - _annTs(a)); /* newest first */
+  const activeAnns  = _annSorted.filter(a => _annIsActive(a));
+  const expiredAnns = _annSorted.filter(a => !_annIsActive(a));
   const annHtml = (activeAnns.length || admin) ? `
     <div style="margin-bottom:var(--space-xl);">
       <div class="section-header">
@@ -7563,6 +7563,34 @@ function _stuckTaskRows() {
     </tr>`).join('');
 }
 
+/* Add N working days (skipping Sat/Sun) to a date, return YYYY-MM-DD (IST) */
+function _addWorkingDays(startISO, days) {
+  const d = new Date(startISO);
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
+/* Effective expiry: explicit pinUntil, else 3 working days after posting */
+function _annEffectiveExpiry(a) {
+  if (a.pinUntil) return a.pinUntil;
+  if (!a.at) return null;               /* no date info → never auto-expires */
+  return _addWorkingDays(a.at, 3);
+}
+function _annIsActive(a) {
+  const exp = _annEffectiveExpiry(a);
+  return !exp || exp >= _today();
+}
+/* Sort key: newest first */
+function _annTs(a) {
+  if (a.at) { const t = new Date(a.at).getTime(); if (!isNaN(t)) return t; }
+  const n = parseInt(String(a.id || '').replace(/\D/g, ''), 10);
+  return isNaN(n) ? 0 : n;
+}
+
 function _annBanner(a, showDelete) {
   const emoji = { General:'', Launch:'', Update:'', Reminder:'', Win:'', Alert:'' };
   return `
@@ -7572,7 +7600,7 @@ function _annBanner(a, showDelete) {
         <div class="ann-banner-subject">${escHtml(a.subject)}</div>
         <div class="ann-banner-text">${escHtml(a.body)}</div>
         ${a.imageUrl ? `<img src="${escHtml(a.imageUrl)}" alt="announcement image" style="margin-top:10px;max-width:100%;max-height:320px;border-radius:var(--radius-md);object-fit:cover;display:block;" onerror="this.style.display='none'" />` : ''}
-        <div class="ann-banner-meta">${escHtml(a.by||'')}  ${escHtml(a.at||'')}${a.pinUntil ? ` · Expires ${a.pinUntil}` : ''}</div>
+        <div class="ann-banner-meta">${escHtml(a.by||'')}  ${escHtml(a.at||'')}${(() => { const e=_annEffectiveExpiry(a); return e ? ` · ${a.pinUntil ? 'Expires' : 'Auto-expires'} ${e}` : ''; })()}</div>
       </div>
       ${showDelete ? `
       <button onclick="deleteAnnouncement('${a.id}')" title="Delete announcement"
@@ -7672,10 +7700,9 @@ function renderPastAnnouncementsPage() {
   const el = document.getElementById('past-announcements-content');
   if (!el) return;
   const admin = isAdmin();
-  const today = _today();
-  const past = DS.announcements.filter(a => a.pinUntil && a.pinUntil < today);
+  const past = [...DS.announcements].filter(a => !_annIsActive(a)).sort((a,b) => _annTs(b) - _annTs(a));
   if (!past.length) {
-    el.innerHTML = `<div class="card" style="text-align:center;padding:var(--space-xl);color:var(--text-muted);font-size:var(--text-sm);">No past announcements yet. Announcements expire once their "Pin Until" date passes.</div>`;
+    el.innerHTML = `<div class="card" style="text-align:center;padding:var(--space-xl);color:var(--text-muted);font-size:var(--text-sm);">No past announcements yet. Announcements move here after their end date, or 3 working days if no end date was set.</div>`;
     return;
   }
   el.innerHTML = past.map(a => _annBanner(a, admin)).join('');
