@@ -7563,14 +7563,13 @@ function _stuckTaskRows() {
     </tr>`).join('');
 }
 
-/* Add N working days (skipping Sat/Sun) to a date, return YYYY-MM-DD (IST) */
+/* Add N working days (skipping Sundays only — Saturday is a working day) to a date, return YYYY-MM-DD (IST) */
 function _addWorkingDays(startISO, days) {
   const d = new Date(startISO);
   let added = 0;
   while (added < days) {
     d.setDate(d.getDate() + 1);
-    const dow = d.getDay();
-    if (dow !== 0 && dow !== 6) added++;
+    if (d.getDay() !== 0) added++;   /* 0 = Sunday */
   }
   return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 }
