@@ -8888,9 +8888,7 @@ function memberCheckIn() {
   if (_inGAS()) {
     const sb = _getSB();
     sb.from('checkins').upsert({ id: uid+'_'+_today(), user_name: uid, date: _today(), time_in: time, time_out: DS.checkins[uid][_today()]?.out||null, updated_at: new Date().toISOString() }).then(()=>{});
-    /* Notify admins */
-    const name = window.TeamOS.currentUser?.name || uid;
-    ['NG','SV','EA'].forEach(adm => { if(adm!==uid) sb.from('notifications').upsert({ id:'n_ci_'+uid+'_'+_today(), user_name:adm, type:'status_change', message:`${name} checked in at ${time}`, task_id:null, read:'unread', created_at:new Date().toISOString() }).then(()=>{}); });
+    /* No notification — check-in is visible on Dashboard + Attendance */
   }
   /* Auto-mark available */
   markToday('available');
@@ -8937,8 +8935,7 @@ function _completeCheckOut() {
     const sb = _getSB();
     const timeIn = DS.checkins[uid][_today()]?.in || null;
     sb.from('checkins').upsert({ id: uid+'_'+_today(), user_name: uid, date: _today(), time_in: timeIn, time_out: time, updated_at: new Date().toISOString() }).then(()=>{});
-    const name = window.TeamOS.currentUser?.name || uid;
-    ['NG','SV','EA'].forEach(adm => { if(adm!==uid) sb.from('notifications').upsert({ id:'n_co_'+uid+'_'+_today(), user_name:adm, type:'status_change', message:`${name} checked out at ${time}`, task_id:null, read:'unread', created_at:new Date().toISOString() }).then(()=>{}); });
+    /* No notification — check-out is visible on Dashboard + Attendance */
   }
   markToday('away');
   showToast({ type:'success', title:'Checked out ✓', message:`Logged at ${time} IST. Have a great evening!` });
@@ -9092,14 +9089,7 @@ function markToday(status) {
   const cfg = ATT_STATUSES[status];
   showToast({ type:'success', title:'Status updated', message: cfg?cfg.label:status });
   _saveLocal();
-  if (window.TeamOS.currentUser?.role !== 'admin' && _inGAS()) {
-    const sb = _getSB();
-    const adminInitials = ['NG','SV','EA'];
-    adminInitials.forEach(adm => {
-      const notifId = 'n_att_' + uid + '_' + _today() + '_' + adm;
-      sb.from('notifications').upsert({ id: notifId, user_name: adm, type: 'status_change', message: `${name} marked attendance: ${cfg?.label||status}`, task_id: null, read: 'unread', created_at: new Date().toISOString() }).then(()=>{});
-    });
-  }
+  /* No notification for attendance status — visible on Dashboard + Attendance */
   renderAttendancePage();
   if (window.TeamOS.currentPage==='dashboard') renderDashboard();
 }
