@@ -11614,6 +11614,23 @@ function renderReportsPage() {
   const completion = totalTasks ? Math.round((doneTasks/totalTasks)*100) : 0;
 
   el.innerHTML = `
+    <!-- Tracker for SV -->
+    <div class="card" style="margin-bottom:var(--space-xl);">
+      <div class="card-header">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M9 17V7m4 10V11m4 6V9M3 3v18h18"/></svg>
+          Tracker for SV
+        </div>
+      </div>
+      <div style="padding:var(--space-sm) 0 var(--space-md);">
+        <p style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-md);">Master tracker sheet for SV.</p>
+        <a href="https://docs.google.com/spreadsheets/d/1jBB4VMJAHt68Pagvrsa6TfNSwmSErsjH/edit?gid=68190547#gid=68190547" target="_blank" rel="noopener" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:8px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Open Tracker
+        </a>
+      </div>
+    </div>
+
     <!-- SECTION 1: Visible to ALL team members -->
     <div class="card" style="margin-bottom:var(--space-xl);">
       <div class="card-header">
