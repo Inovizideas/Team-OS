@@ -7566,22 +7566,27 @@ function _addWorkingDays(startISO, days) {
   }
   return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 }
+/* Reliable posting time in ms — prefer the timestamp baked into the id
+   ('ANN-1784739742591'), fall back to parsing a.at (which may be d/m/yyyy). */
+function _annPostedMs(a) {
+  const m = String(a.id || '').match(/(\d{12,})/);
+  if (m) { const n = parseInt(m[1], 10); if (!isNaN(n)) return n; }
+  if (a.at) { const t = new Date(a.at).getTime(); if (!isNaN(t)) return t; }
+  return 0;
+}
 /* Effective expiry: explicit pinUntil, else 3 working days after posting */
 function _annEffectiveExpiry(a) {
   if (a.pinUntil) return a.pinUntil;
-  if (!a.at) return null;               /* no date info → never auto-expires */
-  return _addWorkingDays(a.at, 3);
+  const ms = _annPostedMs(a);
+  if (!ms) return null;                  /* no reliable date → never auto-expires */
+  return _addWorkingDays(ms, 3);
 }
 function _annIsActive(a) {
   const exp = _annEffectiveExpiry(a);
   return !exp || exp >= _today();
 }
 /* Sort key: newest first */
-function _annTs(a) {
-  if (a.at) { const t = new Date(a.at).getTime(); if (!isNaN(t)) return t; }
-  const n = parseInt(String(a.id || '').replace(/\D/g, ''), 10);
-  return isNaN(n) ? 0 : n;
-}
+function _annTs(a) { return _annPostedMs(a); }
 
 function _annBanner(a, showDelete) {
   const emoji = { General:'', Launch:'', Update:'', Reminder:'', Win:'', Alert:'' };
@@ -7594,6 +7599,13 @@ function _annBanner(a, showDelete) {
         ${a.imageUrl ? `<img src="${escHtml(a.imageUrl)}" alt="announcement image" style="margin-top:10px;max-width:100%;max-height:320px;border-radius:var(--radius-md);object-fit:cover;display:block;" onerror="this.style.display='none'" />` : ''}
         <div class="ann-banner-meta">${escHtml(a.by||'')}  ${escHtml(a.at||'')}${(() => { const e=_annEffectiveExpiry(a); return e ? ` · ${a.pinUntil ? 'Expires' : 'Auto-expires'} ${e}` : ''; })()}</div>
       </div>
+      ${showDelete && _annIsActive(a) ? `
+      <button onclick="_moveAnnToPast('${a.id}')" title="Move to Past Announcements"
+        style="position:absolute;top:8px;right:38px;background:transparent;border:none;color:var(--text-muted);cursor:pointer;height:24px;padding:0 8px;display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;border-radius:var(--radius-sm);transition:background 0.12s,color 0.12s;"
+        onmouseover="this.style.background='rgba(240,180,41,0.12)';this.style.color='var(--brand-primary)'"
+        onmouseout="this.style.background='transparent';this.style.color='var(--text-muted)'">
+        ↓ Past
+      </button>` : ''}
       ${showDelete ? `
       <button onclick="deleteAnnouncement('${a.id}')" title="Delete announcement"
         style="position:absolute;top:8px;right:8px;background:transparent;border:none;color:var(--text-muted);cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);transition:background 0.12s,color 0.12s;"
@@ -7626,6 +7638,18 @@ async function deleteAnnouncement(id) {
   const list = document.getElementById('announcements-list');
   if (list && !list.children.length) renderDashboard();
   showToast({ type:'warning', title:'Announcement deleted' });
+}
+
+async function _moveAnnToPast(id) {
+  const ann = DS.announcements.find(a => a.id === id);
+  if (!ann) return;
+  /* Set expiry to yesterday so it lands in Past Announcements immediately */
+  const y = new Date(Date.now() - 24*60*60*1000).toLocaleDateString('en-CA', { timeZone:'Asia/Kolkata' });
+  ann.pinUntil = y;
+  if (_inGAS()) await GAS.saveAnnouncement(ann);
+  _saveLocal();
+  if (typeof renderDashboard === 'function') renderDashboard();
+  showToast({ type:'info', title:'Moved to Past Announcements' });
 }
 
 function quickCreateTask() {
