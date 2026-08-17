@@ -2699,7 +2699,6 @@
   { email: 'sv@inovizideas.com',               password: 'SV@123',        name: 'SV',              initials: 'SV', role: 'admin' },
   { email: 'miir@inovizideas.com',             password: 'Ekta@123',      name: 'Ekta Asher',      initials: 'EA', role: 'admin' },
   { email: 'reports@inovizideas.com',          password: 'Aarush@123',    name: 'Aarush Jain',     initials: 'AJ', role: 'member' },
-  { email: 'designlead@inovizideas.com',       password: 'Aishwarya@123', name: 'Aishwarya Rathi', initials: 'AR', role: 'member' },
   { email: 'sales@inovizideas.com',            password: 'Akash@123',     name: 'Akash Patil',     initials: 'AP', role: 'member' },
   { email: 'keyacc@inovizideas.com',           password: 'Amit@123',      name: 'Amit Kumar',      initials: 'AK', role: 'member' },
   { email: 'operationsmanager@inovizideas.com',password: 'Anish@123',     name: 'Anish Biyani',    initials: 'AB', role: 'member' },
@@ -2760,8 +2759,16 @@
     const session = _lsGet(SESSION_KEY);
     if (session) {
       try {
-        currentUser = JSON.parse(session);
-        showApp();
+        const saved = JSON.parse(session);
+        /* Re-validate against VALID_USERS — a removed/offboarded employee
+           is signed out automatically on their next app load. */
+        if (VALID_USERS.some(u => u.email === saved.email)) {
+          currentUser = saved;
+          showApp();
+        } else {
+          _lsRemove(SESSION_KEY);
+          try { _ssClear(); } catch(_){}
+        }
       } catch(e) {
         _lsRemove(SESSION_KEY);
       }
@@ -4591,7 +4598,6 @@
   /*  Config  */
   const TEAM_MEMBERS = [
   { id: 'AJ', name: 'Aarush Jain',      initials: 'AJ', color: '#4F46E5' },
-  { id: 'AR', name: 'Aishwarya Rathi',  initials: 'AR', color: '#EC4899' },
   { id: 'AP', name: 'Akash Patil',      initials: 'AP', color: '#06B6D4' },
   { id: 'AK', name: 'Amit Kumar',       initials: 'AK', color: '#F59E0B' },
   { id: 'AB', name: 'Anish Biyani',     initials: 'AB', color: '#10B981' },
