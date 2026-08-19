@@ -6831,9 +6831,9 @@ const DS = {
 };
 
 /* Clear stale task/project localStorage data when data format version changes */
-const _LS_VERSION = 'v4';
+const _LS_VERSION = 'v5';
 if (_lsGet('iipl_data_version') !== _LS_VERSION) {
-  ['iipl_tasks','iipl_projects','iipl_activity'].forEach(k => _lsRemove(k));
+  ['iipl_tasks','iipl_activity'].forEach(k => _lsRemove(k));  /* clear only tasks cache */
   _lsSet('iipl_data_version', _LS_VERSION);
 }
 
